@@ -1,0 +1,11 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# SQLite DB (if you don’t want the file)
+#pipeline.db
+
+# Virtual environments
+venv/
+.env
