@@ -19,8 +19,7 @@ def validate_rows(df: pd.DataFrame) -> pd.DataFrame:
     """
     Keep only rows where Quantity > 0 and Sales > 0.
     """
-    filtered = df[(df['Quantity'] > 0) & (df['Sales'] > 0)].copy()
-    return filtered
+    return df.query('Quantity > 0 and Sales > 0').copy()
 
 def main():
     files = glob.glob('data/*_orders.csv')
