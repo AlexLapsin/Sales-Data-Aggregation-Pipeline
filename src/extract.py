@@ -13,12 +13,12 @@ def load_region_csv(path: str) -> pd.DataFrame:
     # Parse month-day-year exactly, coerce bad rows to NaT
     df['Order Date'] = pd.to_datetime(
         df['Order Date'],
-        format='%m-%d-%Y',
+        format='%d-%m-%Y',
         errors='coerce'
     )
     df['Ship Date']  = pd.to_datetime(
         df['Ship Date'],
-        format='%m-%d-%Y',
+        format='%d-%m-%Y',
         errors='coerce'
     )
 
