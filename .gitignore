@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # SQLite DB (if you don’t want the file)
-#pipeline.db
+pipeline.db
 
 # Virtual environments
 venv/
