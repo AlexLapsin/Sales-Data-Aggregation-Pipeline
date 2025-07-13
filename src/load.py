@@ -1,5 +1,6 @@
 import sqlite3
 from extract import get_data_files, load_region_csv
+from config import DB_PATH
 from transform import (
     parse_dates,
     clean_basic,
@@ -9,7 +10,7 @@ from transform import (
 )
 
 
-def load_to_sqlite(db_path: str = "pipeline.db"):
+def load_to_sqlite(db_path: str = DB_PATH):
     """
     1) Drop & recreate sales_daily
     2) For each region CSV:

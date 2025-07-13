@@ -1,4 +1,5 @@
 import pandas as pd
+from config import SALES_THRESHOLD
 
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
@@ -31,7 +32,7 @@ def clean_basic(df: pd.DataFrame) -> pd.DataFrame:
     ).copy()
 
 
-def cap_extremes(df: pd.DataFrame, threshold: float = 10_000) -> pd.DataFrame:
+def cap_extremes(df: pd.DataFrame, threshold: float = SALES_THRESHOLD) -> pd.DataFrame:
     """
     Null out Sales above the given threshold.
     """
