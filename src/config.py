@@ -2,3 +2,4 @@
 DATA_DIR       = "data"
 DB_PATH        = "pipeline.db"
 SALES_THRESHOLD = 10_000
+OUTPUT_DIR = "output"
