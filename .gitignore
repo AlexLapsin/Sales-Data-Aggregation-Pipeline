@@ -9,3 +9,6 @@ pipeline.db
 # Virtual environments
 venv/
 .env
+
+# ignore generated Parquet outputs
+output/
