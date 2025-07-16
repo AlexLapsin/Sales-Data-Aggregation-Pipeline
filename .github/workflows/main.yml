@@ -10,15 +10,6 @@ jobs:
   lint-and-test:
     name: Lint, Type-Check & Test
     runs-on: ubuntu-latest
-    #services:
-      # (optional) spin up a real Postgres if you need it for tests
-      # db:
-      #   image: postgres:15
-      #   env:
-      #     POSTGRES_USER: postgres
-      #     POSTGRES_PASSWORD: postgres
-      #   ports:
-      #     - 5432:5432
 
     steps:
       - name: Check out code
@@ -29,10 +20,10 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install formatting & lint tools
+      - name: Install all dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install black flake8 mypy
+          pip install -r requirements.txt
 
       - name: Black (style check)
         run: black --check .
@@ -43,17 +34,11 @@ jobs:
       - name: MyPy (static types)
         run: mypy src
 
-      - name: Install test dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-
       - name: Run pytest with coverage
         run: pytest --maxfail=1 --disable-warnings --cov=.
 
-      # optionally upload coverage report
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: htmlcov/
@@ -76,7 +61,7 @@ jobs:
           docker save my-etl:${{ github.sha }} | gzip > etl_${{ github.sha }}.tar.gz
 
       - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4
         with:
           name: etl-image
           path: etl_${{ github.sha }}.tar.gz
