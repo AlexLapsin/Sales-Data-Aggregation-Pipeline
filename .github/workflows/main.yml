@@ -54,14 +54,14 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build . -t my-etl:${{ github.sha }}
+          docker build . -t sales-data-aggregation-pipeline:${{ github.sha }}
 
       - name: Save image to tarball
         run: |
-          docker save my-etl:${{ github.sha }} | gzip > etl_${{ github.sha }}.tar.gz
+          docker save sales-data-aggregation-pipeline:${{ github.sha }} | gzip > sales-data-aggregation-pipeline:${{ github.sha }}.tar.gz
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: etl-image
-          path: etl_${{ github.sha }}.tar.gz
+          name: sales-data-aggregation-pipeline-image
+          path: sales-data-aggregation-pipeline${{ github.sha }}.tar.gz
