@@ -5,7 +5,7 @@ from config import DATA_DIR
 
 def get_data_files():
     """Return sorted list of region CSV paths under data/"""
-    return sorted(glob.glob(f'{DATA_DIR}/*_orders.csv'))
+    return sorted(glob.glob(f"{DATA_DIR}/*_orders.csv"))
 
 
 def load_region_csv(path: str) -> pd.DataFrame:

@@ -6,7 +6,7 @@ from transform import (
     clean_basic,
     cap_extremes,
     derive_fields,
-    rename_columns
+    rename_columns,
 )
 
 
@@ -22,18 +22,19 @@ def load_to_sqlite(db_path: str = DB_PATH):
     conn.execute("DROP TABLE IF EXISTS sales_daily")
 
     for fpath in get_data_files():
-        raw   = load_region_csv(fpath)
+        raw = load_region_csv(fpath)
         parsed = parse_dates(raw)
-        clean  = clean_basic(parsed)
+        clean = clean_basic(parsed)
         capped = cap_extremes(clean)
-        derived= derive_fields(capped)
-        named  = rename_columns(derived)
+        derived = derive_fields(capped)
+        named = rename_columns(derived)
 
-        named.to_sql('sales_daily', conn, if_exists='append', index=False)
+        named.to_sql("sales_daily", conn, if_exists="append", index=False)
         print(f"Appended {len(named):6} rows from {fpath}")
 
     conn.close()
     print("Load complete — data in pipeline.db → sales_daily")
+
 
 if __name__ == "__main__":
     load_to_sqlite()
