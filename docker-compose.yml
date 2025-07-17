@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  etl:
+    build: .
+    image: sales-data-aggregation-pipeline:latest
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./pipeline.db:/app/pipeline.db
+    #environment:
+      # for a future Postgres setup:
+      # DB_HOST: db
+      # DB_NAME: pipeline
+      # DB_USER: postgres
+      # DB_PASSWORD: postgres
+    command: bash -c "python src/extract.py && python src/transform.py && python src/load.py"
+
+  # Uncomment this for a real Postgres dev container:
+  # db:
+  #   image: postgres:15
+  #   restart: always
+  #   environment:
+  #     POSTGRES_DB: pipeline
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+
+#volumes:
+#  pgdata:
