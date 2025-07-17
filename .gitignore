@@ -3,8 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# SQLite DB (if you don’t want the file)
-pipeline.db
+# DB
+/db
 
 # Virtual environments
 venv/
