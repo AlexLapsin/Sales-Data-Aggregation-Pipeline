@@ -1,6 +1,7 @@
 import sqlite3
 from extract import get_data_files, load_region_csv
 from config import DB_PATH
+from pathlib import Path
 from transform import (
     parse_dates,
     clean_basic,
@@ -10,7 +11,7 @@ from transform import (
 )
 
 
-def load_to_sqlite(db_path: str = DB_PATH):
+def load_to_sqlite(db_path: Path = DB_PATH):
     """
     1) Drop & recreate sales_daily
     2) For each region CSV:
@@ -18,7 +19,7 @@ def load_to_sqlite(db_path: str = DB_PATH):
        - transform (parse, clean, cap, derive, rename)
        - append to table
     """
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(str(db_path))
     conn.execute("DROP TABLE IF EXISTS sales_daily")
 
     for fpath in get_data_files():
