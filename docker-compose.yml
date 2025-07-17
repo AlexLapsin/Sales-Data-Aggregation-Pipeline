@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   etl:
     build: .
     image: sales-data-aggregation-pipeline:latest
     volumes:
-      - ./:/app
-      - ./data:/app/data
+      - ./src:/app/src
+      - ./data:/app/data:ro
       - ./output:/app/output
-      - ./pipeline.db:/app/pipeline.db
+      - ./db:/app/db
     #environment:
       # for a future Postgres setup:
       # DB_HOST: db
