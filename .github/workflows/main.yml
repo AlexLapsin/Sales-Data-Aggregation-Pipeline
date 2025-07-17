@@ -34,8 +34,8 @@ jobs:
       - name: MyPy (static types)
         run: mypy src
 
-      - name: Run pytest with coverage
-        run: pytest --maxfail=1 --disable-warnings --cov=.
+      - name: Run pytest with coverage (HTML)
+        run: pytest --maxfail=1 --disable-warnings --cov=. --cov-report html
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
