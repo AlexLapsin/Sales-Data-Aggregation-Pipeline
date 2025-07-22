@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from transform import (
+from etl.transform_funcs import (
     parse_dates,
     clean_basic,
     cap_extremes,
@@ -39,10 +39,17 @@ def test_clean_basic():
 
 # 3) Test capping extremes
 def test_cap_extremes():
-    df = pd.DataFrame({"Quantity": [1, 1], "Sales": [500, 20000], "Profit": [50, 200]})
+    df = pd.DataFrame(
+        {
+            "Quantity": [1, 1],
+            "Sales": [500, 20000],
+            "Profit": [50, 200],
+        }
+    )
     out = cap_extremes(df)
-    assert pd.isna(out.loc[1, "Sales"])
-    assert out.loc[0, "Sales"] == 500
+    # Only keep rows with Sales <= threshold
+    assert len(out) == 1
+    assert out["Sales"].iloc[0] == 500
 
 
 # 4) Test derived fields
