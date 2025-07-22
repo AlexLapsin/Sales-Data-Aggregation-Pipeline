@@ -1,14 +1,6 @@
-#!/usr/bin/env python3
-import sys
-from pathlib import Path
-
-# Ensure src/ is on PYTHONPATH for etl imports
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from dotenv import load_dotenv
 import pandas as pd
 from etl.extract_funcs import get_data_files, load_region_csv
-from pathlib import Path
 from config import DATA_DIR
 
 
