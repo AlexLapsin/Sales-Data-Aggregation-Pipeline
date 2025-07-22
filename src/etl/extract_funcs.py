@@ -6,8 +6,8 @@ import pandas as pd
 
 # Initialize S3 client; .env is loaded in scripts
 s3_client = boto3.client("s3")
-BUCKET = os.getenv("S3_BUCKET")
-PREFIX = os.getenv("S3_PREFIX", "")  # optional prefix
+BUCKET = os.environ["S3_BUCKET"]
+PREFIX = os.environ.get("S3_PREFIX", "")
 
 
 def get_data_files():
