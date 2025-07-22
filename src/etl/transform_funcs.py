@@ -1,11 +1,11 @@
+# src/etl/transform_funcs.py
 import pandas as pd
 from config import SALES_THRESHOLD
 
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Parse Order Date and Ship Date from strings to datetime,
-    coercing invalids to NaT.
+    Parse 'Order Date' & 'Ship Date' to datetime, coercing errors.
     """
     df = df.copy()
     df["Order Date"] = pd.to_datetime(df["Order Date"], dayfirst=True, errors="coerce")
@@ -15,37 +15,34 @@ def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
 
 def clean_basic(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Keep only rows with positive Quantity & Sales and non-null dates.
+    Keep only rows with positive quantity & sales and non-null dates.
     """
     return df.query(
-        "Quantity > 0 and Sales > 0 "
-        "and `Order Date`.notnull() "
-        "and `Ship Date`.notnull()"
+        "Quantity > 0 and Sales > 0 and `Order Date`.notnull() and `Ship Date`.notnull()"
     ).copy()
 
 
 def cap_extremes(df: pd.DataFrame, threshold: float = SALES_THRESHOLD) -> pd.DataFrame:
     """
-    Null out Sales above the given threshold.
+    Filter out rows where Sales exceed the threshold.
     """
-    df = df.copy()
-    df.loc[df["Sales"] > threshold, "Sales"] = pd.NA
-    return df
+    # Only keep rows with Sales <= threshold
+    return df[df["Sales"] <= threshold].copy()
 
 
 def derive_fields(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Add unit_price and profit_margin columns.
+    Add unit_price and profit_margin.
     """
     df = df.copy()
-    df["unit_price"] = df["Sales"] / df["Quantity"]
-    df["profit_margin"] = df["Profit"] / df["Sales"]
+    df["unit_price"] = (df["Sales"] / df["Quantity"]).round(2)
+    df["profit_margin"] = (df["Profit"] / df["Sales"]).round(2)
     return df
 
 
 def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Rename columns to match SQL schema (snake_case).
+    Rename Camel/space names to snake_case matching SQL schema.
     """
     return df.rename(
         columns={
@@ -62,22 +59,3 @@ def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
             "Profit": "profit",
         }
     )
-
-
-if __name__ == "__main__":
-    # quick sanity check
-    df = pd.DataFrame(
-        {
-            "Quantity": [1, 0],
-            "Sales": [100, 200],
-            "Profit": [10, 20],
-            "Order Date": ["7/27/2012", "invalid"],
-            "Ship Date": ["7/28/2012", "7/29/2012"],
-        }
-    )
-    parsed = parse_dates(df)
-    cleaned = clean_basic(parsed)
-    capped = cap_extremes(cleaned)
-    derived = derive_fields(capped)
-    renamed = rename_columns(derived)
-    print("Transform pipeline result:\n", renamed)
