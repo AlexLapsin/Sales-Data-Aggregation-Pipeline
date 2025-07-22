@@ -23,6 +23,7 @@ jobs:
       - name: Install all dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install types-psycopg2 boto3-stubs[s3]
           pip install -r requirements.txt
 
       - name: Black (style check)
