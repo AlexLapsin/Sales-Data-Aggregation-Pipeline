@@ -1,17 +1,30 @@
-FROM python:3.13-slim
+# Dockerfile — build the ETL pipeline image
+FROM python:3.11-slim
 
-# Update Debian packages & install Python deps in one layer
+# Ensure logs are unbuffered
+ENV PYTHONUNBUFFERED=1
+
+# Install OS-level deps for psycopg2
 RUN apt-get update \
- && apt-get upgrade -y \
- && apt-get install --no-install-recommends -y \
-      # any OS deps you actually need, e.g. gcc if you build wheels
+ && apt-get install -y --no-install-recommends \
+      gcc \
+      libpq-dev \
+      postgresql-client \
  && rm -rf /var/lib/apt/lists/*
 
+# Set workdir
 WORKDIR /app
 
-COPY requirements.txt .
+# Copy runtime requirements and install only runtime deps
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy application code and placeholder .env
+COPY src/ ./src
+COPY .env.example .env
 
-CMD ["bash"]
+# Default working directory for execution
+WORKDIR /app/src
+
+# Run the full pipeline by default
+ENTRYPOINT ["bash", "-lc", "python -m scripts.create_tables && python -m scripts.run_extract && python -m scripts.run_transform && python -m scripts.run_load"]
