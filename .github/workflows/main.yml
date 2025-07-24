@@ -25,6 +25,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install types-psycopg2 boto3-stubs[s3]
           pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Black (style check)
         run: black --check .
