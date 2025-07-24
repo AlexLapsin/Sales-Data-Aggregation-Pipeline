@@ -1,6 +1,9 @@
 # src/etl/transform_funcs.py
 import pandas as pd
 from config import SALES_THRESHOLD
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:

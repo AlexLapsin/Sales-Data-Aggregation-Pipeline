@@ -3,8 +3,11 @@ import os
 import io
 import boto3
 import pandas as pd
+from dotenv import load_dotenv
 
-# Initialize S3 client; .env is loaded in scripts
+load_dotenv()  # ← load .env immediately
+
+# Initialize S3 client;
 s3_client = boto3.client("s3")
 BUCKET = os.environ["S3_BUCKET"]
 PREFIX = os.environ.get("S3_PREFIX", "")
