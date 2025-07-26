@@ -1,25 +1,63 @@
 services:
+
   etl-pipeline:
     build: .
     image: sales-pipeline:latest
-
-    # Load real credentials from .env
+    command: tail -f /dev/null
     env_file:
       - .env
-
-    # Mount host directories into container
+    environment:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION
+      - RDS_HOST
+      - RDS_PORT
+      - RDS_DB
+      - RDS_USER
+      - RDS_PASS
     volumes:
-      - ./data:/app/data         # raw data and staging
-      - ./output:/app/output     # parquet outputs
-      - ./db:/app/db             # local DB if used
+      - ./:/app
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./db:/app/db
+      - ~/.aws:/root/.aws:ro
 
-    working_dir: /app/src
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile-airflow
+    image: custom-airflow:2.6.1
+    restart: always
+    depends_on:
+      - etl-pipeline
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://${RDS_USER}:${RDS_PASS}@${RDS_HOST}:${RDS_PORT}/${RDS_DB}?sslmode=require"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.aws:/root/.aws:ro
+    command:
+      - bash
+      - -c
+      - |
+        # Initialize and migrate metadata DB
+        airflow db init
 
-    # Run the ETL steps in sequence
-    command: >
-      bash -lc "
-        python -m scripts.create_tables &&
-        python -m scripts.run_extract &&
-        python -m scripts.run_transform &&
-        python -m scripts.run_load
-      "
+        # Start scheduler in background
+        airflow scheduler &
+
+        # Launch webserver as PID 1
+        exec airflow webserver --port 8080
+
+networks:
+  default:
+    driver: bridge
