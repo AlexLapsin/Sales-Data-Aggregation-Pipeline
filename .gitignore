@@ -1,7 +1,20 @@
-# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files etc.
 __pycache__/
+.mypy_cache/
 *.py[cod]
 *$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.pytest_cache/
 
 # DB
 /db
@@ -9,6 +22,28 @@ __pycache__/
 # Virtual environments
 venv/
 .env
+ENV/
+.env_*/
 
-# ignore generated Parquet outputs
+# ignore data and generated Parquet outputs
 output/
+data/
+
+# IDEs / Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Airflow
+airflow/logs/
+
+*.log
+*.sqlite3
+
+coverage.xml
+.ipynb_checkpoints/
