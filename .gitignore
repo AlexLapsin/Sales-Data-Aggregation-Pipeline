@@ -47,3 +47,9 @@ airflow/logs/
 
 coverage.xml
 .ipynb_checkpoints/
+# Terraform
+infra/backend.hcl
+infra/secrets.auto.tfvars
+infra/.terraform/
+infra/*.tfstate*
+infra/tfplan
