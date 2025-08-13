@@ -47,9 +47,15 @@ airflow/logs/
 
 coverage.xml
 .ipynb_checkpoints/
-# Terraform
-infra/backend.hcl
-infra/secrets.auto.tfvars
-infra/.terraform/
+
+# ── Terraform (infra/)
+infra/.terraform/            # local plugin cache
 infra/*.tfstate*
-infra/tfplan
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/tfplan                 # plan artifacts
+infra/backend.hcl            # real backend config
+infra/secrets.auto.tfvars    # local secrets/inputs
+
+# Keep the provider lockfile committed:
+!infra/.terraform.lock.hcl
