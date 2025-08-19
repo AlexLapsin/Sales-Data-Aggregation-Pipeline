@@ -29,9 +29,7 @@ ENV/
 !.env.example  # keep the sample
 
 # Keep the data folder but ignore its contents
-data/**
-!data/.gitkeep
-!data/README.md
+opt/data/**
 
 # ── IDEs / Editors
 .vscode/
