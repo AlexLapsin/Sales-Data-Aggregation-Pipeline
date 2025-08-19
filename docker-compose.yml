@@ -1,61 +1,80 @@
 services:
+  # Airflow metadata DB (local)
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ./airflow/postgres:/var/lib/postgresql/data
 
+  # Build your ETL image so DockerOperator can run it
   etl-pipeline:
     build: .
     image: sales-pipeline:latest
-    command: tail -f /dev/null
+    command: sleep infinity
     env_file:
-      - .env
-    environment:
-      - AWS_ACCESS_KEY_ID
-      - AWS_SECRET_ACCESS_KEY
-      - AWS_DEFAULT_REGION
-      - RDS_HOST
-      - RDS_PORT
-      - RDS_DB
-      - RDS_USER
-      - RDS_PASS
-    volumes:
-      - ./:/app
-      - ./data:/app/data
-      - ./output:/app/output
-      - ./db:/app/db
-      - ~/.aws:/root/.aws:ro
+    - .env
 
+  # Airflow (scheduler + webserver in one container for local dev)
   airflow:
     build:
       context: .
       dockerfile: Dockerfile-airflow
     image: custom-airflow:2.6.1
-    restart: always
     depends_on:
-      - etl-pipeline
+      postgres:
+        condition: service_healthy
+      etl-pipeline:
+        condition: service_started
+    restart: unless-stopped
     ports:
       - "8080:8080"
     env_file:
-      - .env
+      - .env    # loads AWS/RDS/S3 vars used by tasks
     environment:
+      # Airflow core
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://${RDS_USER}:${RDS_PASS}@${RDS_HOST}:${RDS_PORT}/${RDS_DB}?sslmode=require"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.session,airflow.api.auth.backend.basic_auth"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+
+      # Web user (override in .env if you want)
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-admin}
+      _AIRFLOW_WWW_USER_EMAIL: ${_AIRFLOW_WWW_USER_EMAIL:-admin@example.com}
+
+      # 👇 Used by the DAG
+      PIPELINE_IMAGE: ${PIPELINE_IMAGE:-sales-pipeline:latest}
+      # Absolute host path to your repo's data folder (must contain ./raw/*.csv)
+      HOST_DATA_DIR: ${HOST_DATA_DIR}
+
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
+      # Required so DockerOperator can launch task containers via host Docker
       - /var/run/docker.sock:/var/run/docker.sock
-      - ~/.aws:/root/.aws:ro
+
     command:
       - bash
-      - -c
+      - -lc
       - |
-        # Initialize and migrate metadata DB
-        airflow db init
-
-        # Start scheduler in background
+        airflow db upgrade && \
+        airflow users create \
+          --role Admin \
+          --username "$${_AIRFLOW_WWW_USER_USERNAME}" \
+          --password "$${_AIRFLOW_WWW_USER_PASSWORD}" \
+          --firstname Admin \
+          --lastname User \
+          --email "$${_AIRFLOW_WWW_USER_EMAIL}" || true
         airflow scheduler &
-
-        # Launch webserver as PID 1
         exec airflow webserver --port 8080
 
 networks:

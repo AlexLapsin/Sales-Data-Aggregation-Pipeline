@@ -1,8 +1,10 @@
-# Byte-compiled / optimized / DLL files etc.
+# ── Python
 __pycache__/
-.mypy_cache/
 *.py[cod]
+*.pyo
+*.pyd
 *$py.class
+.mypy_cache/
 *.egg-info/
 *.egg
 build/
@@ -15,47 +17,61 @@ htmlcov/
 .coverage
 .coverage.*
 .pytest_cache/
+.ipynb_checkpoints/
 
-# DB
-/db
-
-# Virtual environments
+# ── Virtual environments / env files
 venv/
-.env
+.venv/
 ENV/
+.env
 .env_*/
+.env.*
+!.env.example  # keep the sample
 
-# ignore data and generated Parquet outputs
-output/
-data/
+# Keep the data folder but ignore its contents
+data/**
+!data/.gitkeep
+!data/README.md
 
-# IDEs / Editors
+# ── IDEs / Editors
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
 
-# OS
+# ── OS cruft
 .DS_Store
 Thumbs.db
 
-# Airflow
+# ── Airflow local volumes
 airflow/logs/
+airflow/postgres/
+airflow/plugins/__pycache__/
 
+# ── Docker
+docker-compose.override.yml
+
+# ── Logs
 *.log
-*.sqlite3
+logs/
 
+# ── Coverage
 coverage.xml
-.ipynb_checkpoints/
 
 # ── Terraform (infra/)
-infra/.terraform/            # local plugin cache
+infra/.terraform/
 infra/*.tfstate*
 infra/terraform.tfstate
 infra/terraform.tfstate.backup
-infra/tfplan                 # plan artifacts
-infra/backend.hcl            # real backend config
-infra/secrets.auto.tfvars    # local secrets/inputs
+infra/tfplan
+infra/backend.hcl
+
+# ── Terraform (root-level fallbacks)
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
+*.auto.tfvars
+dynamic.auto.tfvars
 
 # Keep the provider lockfile committed:
 !infra/.terraform.lock.hcl
