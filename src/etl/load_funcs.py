@@ -1,6 +1,8 @@
 # src/etl/load_funcs.py
 import os
-import io, boto3, pandas as pd
+import io
+import boto3
+import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_batch
 from dotenv import load_dotenv

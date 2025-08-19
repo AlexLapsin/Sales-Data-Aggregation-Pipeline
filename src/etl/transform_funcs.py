@@ -1,6 +1,9 @@
 # src/etl/transform_funcs.py
 import pandas as pd
-import os, io, boto3, logging
+import os
+import io
+import boto3
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
