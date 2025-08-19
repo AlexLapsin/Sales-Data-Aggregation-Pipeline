@@ -1,10 +1,11 @@
-# Dockerfile — build the ETL pipeline image
+# Dockerfile — sales-pipeline image used by DockerOperator tasks
 FROM python:3.11-slim
 
-# Ensure logs are unbuffered
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
 
-# Install OS-level deps for psycopg2
+# OS deps for psycopg2 + optional psql client (handy for debugging)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       gcc \
@@ -12,19 +13,18 @@ RUN apt-get update \
       postgresql-client \
  && rm -rf /var/lib/apt/lists/*
 
-# Set workdir
+# App root
 WORKDIR /app
 
-# Copy runtime requirements and install only runtime deps
-COPY requirements.txt ./
+# Install Python deps
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code and placeholder .env
-COPY src/ ./src
-COPY .env.example .env
+# Copy your source code
+COPY src/ /app/src
 
-# Default working directory for execution
+# Work under src by default (tasks call "python -m scripts.*")
 WORKDIR /app/src
 
-# Run the full pipeline by default
-ENTRYPOINT ["bash", "-lc", "python -m scripts.create_tables && python -m scripts.run_extract && python -m scripts.run_transform && python -m scripts.run_load"]
+ENTRYPOINT []
+CMD ["python", "-c", "print('sales-pipeline image ready')"]
