@@ -1,6 +1,7 @@
 # RAW bucket
 resource "aws_s3_bucket" "raw" {
-  bucket = var.RAW_BUCKET
+  bucket        = var.RAW_BUCKET
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "raw" {
@@ -14,7 +15,7 @@ resource "aws_s3_bucket_public_access_block" "raw" {
 resource "aws_s3_bucket_versioning" "raw" {
   bucket = aws_s3_bucket.raw.id
   versioning_configuration {
-    status = "Enabled"
+    status = "Suspended"
   }
 }
 
@@ -29,7 +30,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "raw" {
 
 # PROCESSED bucket
 resource "aws_s3_bucket" "processed" {
-  bucket = var.PROCESSED_BUCKET
+  bucket        = var.PROCESSED_BUCKET
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "processed" {
@@ -43,7 +45,7 @@ resource "aws_s3_bucket_public_access_block" "processed" {
 resource "aws_s3_bucket_versioning" "processed" {
   bucket = aws_s3_bucket.processed.id
   versioning_configuration {
-    status = "Enabled"
+    status = "Suspended"
   }
 }
 
