@@ -1,11 +1,18 @@
 # src/etl/load_funcs.py
 import os
-import pandas as pd
+import io, boto3, pandas as pd
 import psycopg2
 from psycopg2.extras import execute_batch
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def s3_parquet_to_df(bucket: str, key: str) -> pd.DataFrame:
+    """Read a Parquet object from S3 into a DataFrame (in-memory). Requires pyarrow."""
+    obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
+    bio = io.BytesIO(obj["Body"].read())
+    return pd.read_parquet(bio)
 
 
 def get_rds_conn():

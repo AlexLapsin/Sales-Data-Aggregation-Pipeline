@@ -1,52 +1,33 @@
-# src/scripts/create_tables.py
-import os
+#!/usr/bin/env python3
 from dotenv import load_dotenv
+import os
 import psycopg2
+import logging
 
-load_dotenv()
-conn = psycopg2.connect(
-    host=os.getenv("RDS_HOST"),
-    port=os.getenv("RDS_PORT"),
-    dbname=os.getenv("RDS_DB"),
-    user=os.getenv("RDS_USER"),
-    password=os.getenv("RDS_PASS"),
-)
-cur = conn.cursor()
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# DROP old tables so we can recreate with new schema
-cur.execute("DROP TABLE IF EXISTS fact_sales CASCADE;")
-cur.execute("DROP TABLE IF EXISTS dim_product CASCADE;")
-cur.execute("DROP TABLE IF EXISTS dim_date CASCADE;")
-conn.commit()
-
-# dim_date
-cur.execute(
-    """
+DDL_DIM_DATE = """
 CREATE TABLE IF NOT EXISTS dim_date (
     date_id    SERIAL PRIMARY KEY,
-    order_date DATE     UNIQUE,
+    order_date DATE UNIQUE,
     day        INT,
     month      INT,
     quarter    INT,
     year       INT
 );
 """
-)
 
-# dim_product
-cur.execute(
-    """
+DDL_DIM_PRODUCT = """
 CREATE TABLE IF NOT EXISTS dim_product (
     product_sk  SERIAL PRIMARY KEY,
     product_id  TEXT UNIQUE,
     category    TEXT
 );
 """
-)
 
-# fact_sales
-cur.execute(
-    """
+DDL_FACT_SALES = """
 CREATE TABLE IF NOT EXISTS fact_sales (
     sale_id        SERIAL PRIMARY KEY,
     date_id        INT NOT NULL REFERENCES dim_date(date_id),
@@ -58,9 +39,28 @@ CREATE TABLE IF NOT EXISTS fact_sales (
     profit_margin  NUMERIC
 );
 """
-)
 
-conn.commit()
-cur.close()
-conn.close()
-print("[create_tables] Schema ensured in RDS")
+
+def main():
+    load_dotenv()
+
+    conn = psycopg2.connect(
+        host=os.getenv("RDS_HOST"),
+        port=os.getenv("RDS_PORT", "5432"),
+        dbname=os.getenv("RDS_DB"),
+        user=os.getenv("RDS_USER"),
+        password=os.getenv("RDS_PASS"),
+    )
+    try:
+        with conn, conn.cursor() as cur:
+            logger.info("Ensuring target schema exists (idempotent).")
+            cur.execute(DDL_DIM_DATE)
+            cur.execute(DDL_DIM_PRODUCT)
+            cur.execute(DDL_FACT_SALES)
+        logger.info("Schema is ready.")
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()

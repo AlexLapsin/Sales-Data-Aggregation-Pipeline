@@ -15,11 +15,11 @@ PREFIX = os.environ.get("S3_PREFIX", "")
 
 def get_data_files():
     """
-    List all CSV keys under S3 prefix ending with '_orders.csv'.
+    List all CSV keys under S3 prefix ending with '.csv'.
     """
     resp = s3_client.list_objects_v2(Bucket=BUCKET, Prefix=PREFIX)
     keys = [
-        o["Key"] for o in resp.get("Contents", []) if o["Key"].endswith("_orders.csv")
+        o["Key"] for o in resp.get("Contents", []) if o["Key"].lower().endswith(".csv")
     ]
     return sorted(keys)
 
