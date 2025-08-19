@@ -1,9 +1,12 @@
 # src/etl/transform_funcs.py
 import pandas as pd
-from config import SALES_THRESHOLD
+import os, io, boto3, logging
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger(__name__)
+
+DEFAULT_THRESHOLD = float(os.getenv("SALES_THRESHOLD", "10000"))
 
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
@@ -25,7 +28,9 @@ def clean_basic(df: pd.DataFrame) -> pd.DataFrame:
     ).copy()
 
 
-def cap_extremes(df: pd.DataFrame, threshold: float = SALES_THRESHOLD) -> pd.DataFrame:
+def cap_extremes(
+    df: pd.DataFrame, threshold: float = DEFAULT_THRESHOLD
+) -> pd.DataFrame:
     """
     Filter out rows where Sales exceed the threshold.
     """
@@ -62,3 +67,12 @@ def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
             "Profit": "profit",
         }
     )
+
+
+def df_to_s3_parquet(df: pd.DataFrame, bucket: str, key: str) -> None:
+    """Write a DataFrame to S3 as Parquet (in-memory). Requires pyarrow."""
+    bio = io.BytesIO()
+    df.to_parquet(bio, index=False)
+    bio.seek(0)
+    boto3.client("s3").upload_fileobj(bio, bucket, key)
+    logger.info("Uploaded parquet -> s3://%s/%s (%d rows)", bucket, key, len(df))

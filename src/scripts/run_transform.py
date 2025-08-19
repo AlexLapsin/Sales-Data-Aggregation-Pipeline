@@ -1,21 +1,45 @@
 #!/usr/bin/env python3
 from dotenv import load_dotenv
+import os
+import logging
 import pandas as pd
+from etl.extract_funcs import get_data_files, load_region_csv
 from etl.transform_funcs import (
     parse_dates,
     clean_basic,
     cap_extremes,
     derive_fields,
     rename_columns,
+    df_to_s3_parquet,
 )
-from config import OUTPUT_DIR, DATA_DIR
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def main():
     load_dotenv()
-    raw_path = DATA_DIR / "raw" / "all_orders_raw.parquet"
-    df = pd.read_parquet(raw_path)
 
+    # Destination: processed bucket
+    processed_bucket = os.getenv("PROCESSED_BUCKET")
+    if not processed_bucket:
+        raise RuntimeError("PROCESSED_BUCKET is not set")
+
+    prefix = os.getenv("S3_PREFIX", "")
+    if prefix and not prefix.endswith("/"):
+        prefix += "/"
+
+    # Source: raw files in S3
+    keys = get_data_files()
+    if not keys:
+        raise RuntimeError(
+            "No *_orders.csv files found in RAW bucket (S3_BUCKET/S3_PREFIX)."
+        )
+
+    dfs = [load_region_csv(k) for k in keys]
+    df = pd.concat(dfs, ignore_index=True)
+
+    # Transform pipeline
     cleaned = (
         df.pipe(parse_dates)
         .pipe(clean_basic)
@@ -24,8 +48,7 @@ def main():
         .pipe(rename_columns)
     )
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    # dim_date
+    # Build star schema
     dim_date = (
         cleaned[["order_date"]]
         .drop_duplicates()
@@ -36,13 +59,11 @@ def main():
             year=lambda d: d.order_date.dt.year,
         )
     )
-    dim_date.to_parquet(OUTPUT_DIR / "dim_date.parquet", index=False)
+    df_to_s3_parquet(dim_date, processed_bucket, f"{prefix}dim_date.parquet")
 
-    # dim_product
     dim_prod = cleaned[["product_id", "category"]].drop_duplicates()
-    dim_prod.to_parquet(OUTPUT_DIR / "dim_product.parquet", index=False)
+    df_to_s3_parquet(dim_prod, processed_bucket, f"{prefix}dim_product.parquet")
 
-    # fact_sales
     fact_cols = [
         "order_date",
         "product_id",
@@ -52,10 +73,16 @@ def main():
         "unit_price",
         "profit_margin",
     ]
-    cleaned[fact_cols].to_parquet(OUTPUT_DIR / "fact_sales.parquet", index=False)
+    fact = cleaned[fact_cols]
+    df_to_s3_parquet(fact, processed_bucket, f"{prefix}fact_sales.parquet")
 
-    print(
-        f"[transform] Wrote dim_date({len(dim_date)}), dim_product({len(dim_prod)}), fact_sales({len(cleaned)})"
+    logger.info(
+        "[transform] Uploaded dim_date(%d), dim_product(%d), fact_sales(%d) to s3://%s/%s",
+        len(dim_date),
+        len(dim_prod),
+        len(fact),
+        processed_bucket,
+        prefix,
     )
 
 
