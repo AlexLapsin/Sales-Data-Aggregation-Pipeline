@@ -7,9 +7,9 @@ from docker.types import Mount
 
 # ---------------- Default args ----------------
 default_args = {
-    "owner": "alex",
+    "owner": [os.getenv("OWNER_NAME")],
     "depends_on_past": False,
-    "email": ["alex.lapsin.dev@gmail.com"],
+    "email": [os.getenv("ALERT_EMAIL")],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 2,
