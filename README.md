@@ -39,11 +39,11 @@ This project is designed to showcase a broad range of data engineering skills an
 
 ## Architecture
 
-The diagram below illustrates the high-level architecture of the pipeline and data flow: **Architecture Diagram**
+The diagram below illustrates the high-level architecture of the pipeline and data flow:
 
 ![architecture](docs/architecture.png)
 
-**DAG (placeholder):**
+**DAG**
 
 ![dag](docs/airflow_dag.png)
 
