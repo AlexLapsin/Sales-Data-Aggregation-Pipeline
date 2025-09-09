@@ -205,3 +205,35 @@ docker exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --top
 ### Docker Compose Profiles
 - `kafka-local`: Start local Kafka cluster with UI
 - Default profile: Only Airflow and existing services
+
+## Snowflake Kafka Connect
+
+### Quick Setup
+```bash
+# 1. Start Kafka Connect with Snowflake connector
+docker-compose -f docker-compose-connect.yml up -d
+
+# 2. Configure your Snowflake credentials in .env
+# 3. Deploy the connector
+./deploy_connector.sh
+
+# 4. Test the pipeline
+python kafka_producer.py --count 20
+```
+
+### Connector Management
+```bash
+# Check connector status
+./manage_connector.sh status
+
+# Pause/resume connector
+./manage_connector.sh stop
+./manage_connector.sh start
+
+# View logs
+./manage_connector.sh logs
+```
+
+### Connector Configurations
+- `snowflake_connector.json` - Private key authentication (production)
+- `snowflake_connector_password.json` - Password authentication (development)
