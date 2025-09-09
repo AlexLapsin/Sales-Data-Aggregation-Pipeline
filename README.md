@@ -123,7 +123,7 @@ docker-compose up --build
 ```
 This will build the custom Docker images and start three containers: Airflow, a Postgres container (for Airflow’s metadata), and an idle ETL container (which provides the image for tasks). The Airflow web server will be accessible at http://localhost:8080 (username: `admin`, password: `admin` by default, configurable in `.env`). Wait a minute or two for the Airflow services to fully initialize.
 
-**Run the ETL DAG:** In the Airflow UI, you’ll see a DAG called `sales_data_aggregation`. Unpause it (toggle on) and trigger a run (via the ▶️ Trigger DAG button). This will execute all pipeline tasks in order. You can monitor progress in the Airflow UI’s Graph or Tree view. Each task logs its actions (e.g., how many files uploaded, number of records processed) which you can inspect in the Airflow logs.
+**Run the ETL DAG:** In the Airflow UI, you'll see a DAG called `sales_data_aggregation`. Unpause it (toggle on) and trigger a run (via the "Trigger DAG" button). This will execute all pipeline tasks in order. You can monitor progress in the Airflow UI's Graph or Tree view. Each task logs its actions (e.g., how many files uploaded, number of records processed) which you can inspect in the Airflow logs.
 
 **Verify Results:** After a successful DAG run, the sales data should be loaded into the PostgreSQL database. You can connect to the RDS instance to verify:
 - Airflow UI: Use Airflow’s built-in Database view or logs (if configured) to see task outputs.
