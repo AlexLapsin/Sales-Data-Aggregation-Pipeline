@@ -1,0 +1,393 @@
+# models/marts/_marts.yml
+# Tests and documentation for mart models (final dimensional model)
+
+version: 2
+
+models:
+  - name: dim_date
+    description: "Date dimension with comprehensive calendar attributes for analytics"
+    columns:
+      - name: date_key
+        description: "Surrogate key in YYYYMMDD format"
+        tests:
+          - not_null
+          - unique
+
+      - name: date_value
+        description: "Actual date value"
+        tests:
+          - not_null
+          - unique
+
+      - name: year_number
+        description: "4-digit year"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 2020
+              max_value: 2030
+
+      - name: quarter
+        description: "Quarter number (1-4)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4]
+
+      - name: month_number
+        description: "Month number (1-12)"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 12
+
+      - name: day_of_week
+        description: "Day of week (0=Sunday, 6=Saturday)"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 6
+
+      - name: is_weekend
+        description: "Boolean flag for weekend days"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: is_holiday
+        description: "Boolean flag for holidays"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+    tests:
+      # Ensure date key matches date value
+      - dbt_utils.expression_is_true:
+          expression: "date_key = to_number(to_char(date_value, 'YYYYMMDD'))"
+
+      # Ensure weekend logic is correct
+      - dbt_utils.expression_is_true:
+          expression: "is_weekend = (day_of_week in (0, 6))"
+
+  - name: dim_product
+    description: "Product dimension with slowly changing attributes"
+    columns:
+      - name: product_key
+        description: "Surrogate key for product dimension"
+        tests:
+          - not_null
+          - unique
+
+      - name: product_id
+        description: "Business key - unique product identifier"
+        tests:
+          - not_null
+
+      - name: product_name
+        description: "Product name"
+        tests:
+          - not_null
+
+      - name: category
+        description: "Product category"
+        tests:
+          - not_null
+
+      - name: unit_price
+        description: "Current selling price per unit"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0.01
+
+      - name: is_current
+        description: "Flag indicating current version"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: price_tier
+        description: "Price categorization"
+        tests:
+          - accepted_values:
+              values: ['LOW_PRICE', 'MEDIUM_PRICE', 'HIGH_PRICE', 'PREMIUM_PRICE']
+
+      - name: margin_tier
+        description: "Profit margin categorization"
+        tests:
+          - accepted_values:
+              values: ['LOW_MARGIN', 'MEDIUM_MARGIN', 'HIGH_MARGIN', 'PREMIUM_MARGIN']
+
+    tests:
+      # Ensure only one current version per product
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - product_id
+          where: "is_current = true"
+
+      # Ensure SCD2 dates are logical
+      - dbt_utils.expression_is_true:
+          expression: "effective_date <= expiration_date"
+
+  - name: dim_store
+    description: "Store dimension with location and operational attributes"
+    columns:
+      - name: store_key
+        description: "Surrogate key for store dimension"
+        tests:
+          - not_null
+          - unique
+
+      - name: store_id
+        description: "Business key - unique store identifier"
+        tests:
+          - not_null
+
+      - name: store_name
+        description: "Store name"
+        tests:
+          - not_null
+
+      - name: region
+        description: "Geographic region"
+        tests:
+          - not_null
+
+      - name: store_type
+        description: "Type/format of store"
+        tests:
+          - accepted_values:
+              values: ['FLAGSHIP', 'OUTLET', 'KIOSK', 'ONLINE', 'WAREHOUSE']
+
+      - name: is_current
+        description: "Flag indicating current version"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: maturity_level
+        description: "Store maturity classification"
+        tests:
+          - accepted_values:
+              values: ['NEW', 'DEVELOPING', 'MATURE', 'ESTABLISHED', 'LEGACY']
+
+    tests:
+      # Ensure only one current version per store
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - store_id
+          where: "is_current = true"
+
+  - name: dim_customer
+    description: "Customer dimension with behavioral and demographic attributes"
+    columns:
+      - name: customer_key
+        description: "Surrogate key for customer dimension"
+        tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        description: "Business key - unique customer identifier"
+        tests:
+          - not_null
+          - unique
+
+      - name: customer_segment
+        description: "Customer segment classification"
+        tests:
+          - accepted_values:
+              values: ['CONSUMER', 'CORPORATE', 'HOME_OFFICE', 'UNKNOWN']
+
+      - name: customer_value_tier
+        description: "Customer value classification"
+        tests:
+          - accepted_values:
+              values: ['VIP', 'HIGH_VALUE', 'REGULAR', 'OCCASIONAL']
+
+      - name: is_active
+        description: "Whether customer is currently active"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: total_spent
+        description: "Total amount spent by customer"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+      - name: total_orders
+        description: "Total number of orders placed"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+
+    tests:
+      # Logical validation: active customers should have recent purchases
+      - dbt_utils.expression_is_true:
+          expression: "not is_active or days_since_last_purchase <= 30"
+          config:
+            severity: warn
+
+  - name: fact_sales
+    description: "Main sales fact table with transaction-level details"
+    columns:
+      - name: sales_key
+        description: "Surrogate key for sales fact"
+        tests:
+          - not_null
+          - unique
+
+      - name: date_key
+        description: "Foreign key to date dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+
+      - name: product_key
+        description: "Foreign key to product dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+
+      - name: store_key
+        description: "Foreign key to store dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_key
+
+      - name: customer_key
+        description: "Foreign key to customer dimension"
+        tests:
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_key
+
+      - name: order_id
+        description: "Degenerate dimension - order identifier"
+        tests:
+          - not_null
+
+      - name: quantity_sold
+        description: "Number of units sold"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+
+      - name: net_sales_amount
+        description: "Net sales amount after discounts"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0.01
+
+      - name: profit_amount
+        description: "Profit amount"
+        tests:
+          - not_null
+
+      - name: data_quality_score
+        description: "Data quality score (0-110)"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 80
+              max_value: 110
+
+    tests:
+      # Business rule: gross sales >= net sales
+      - dbt_utils.expression_is_true:
+          expression: "gross_sales_amount >= net_sales_amount"
+
+      # Business rule: net sales = gross sales - discount
+      - dbt_utils.expression_is_true:
+          expression: "abs(net_sales_amount - (gross_sales_amount - discount_amount)) < 0.01"
+          config:
+            severity: warn
+
+      # Data quality: high quality threshold for fact table
+      - dbt_utils.expression_is_true:
+          expression: "data_quality_score >= 80"
+
+  - name: fact_sales_daily
+    description: "Daily aggregated sales fact for performance optimization"
+    columns:
+      - name: daily_sales_key
+        description: "Surrogate key for daily sales fact"
+        tests:
+          - not_null
+          - unique
+
+      - name: date_key
+        description: "Foreign key to date dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+
+      - name: product_key
+        description: "Foreign key to product dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+
+      - name: store_key
+        description: "Foreign key to store dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_key
+
+      - name: transaction_count
+        description: "Number of transactions"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+
+      - name: total_net_sales
+        description: "Total net sales amount"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0.01
+
+      - name: unique_customers
+        description: "Number of unique customers"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+
+    tests:
+      # Ensure aggregations make sense
+      - dbt_utils.expression_is_true:
+          expression: "unique_customers <= transaction_count"
+
+      # Unique combination of grain
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - date_key
+            - product_key
+            - store_key

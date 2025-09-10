@@ -1,0 +1,83 @@
+# profiles.yml.example
+# Copy this file to ~/.dbt/profiles.yml and update with your credentials
+# Or set environment variables and use the environment-based configuration
+
+sales_data_pipeline:
+  target: dev
+  outputs:
+
+    # Development environment (local/testing)
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"  # account.region.cloud (e.g., ab12345.us-east-1.aws)
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'SYSADMIN') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      schema: dev_{{ env_var('USER', 'default') }}  # Creates user-specific dev schema
+      threads: 4
+      keepalives_idle: 30
+      search_path: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}.{{ env_var('SNOWFLAKE_SCHEMA', 'RAW') }}"
+      query_tag: "dbt-dev-{{ env_var('USER', 'default') }}"
+
+    # Staging environment
+    staging:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'SYSADMIN') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      schema: staging
+      threads: 6
+      keepalives_idle: 30
+      search_path: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}.{{ env_var('SNOWFLAKE_SCHEMA', 'RAW') }}"
+      query_tag: "dbt-staging"
+
+    # Production environment
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'SYSADMIN') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      schema: marts
+      threads: 8
+      keepalives_idle: 30
+      search_path: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}.{{ env_var('SNOWFLAKE_SCHEMA', 'RAW') }}"
+      query_tag: "dbt-production"
+
+# Alternative: Using username/password with direct values (less secure)
+# sales_data_pipeline_direct:
+#   target: dev
+#   outputs:
+#     dev:
+#       type: snowflake
+#       account: your_account.region.cloud
+#       user: your_username
+#       password: your_password
+#       role: SYSADMIN
+#       database: SALES_DW
+#       warehouse: COMPUTE_WH
+#       schema: dev_your_name
+#       threads: 4
+
+# Alternative: Using private key authentication (most secure)
+# sales_data_pipeline_key_auth:
+#   target: prod
+#   outputs:
+#     prod:
+#       type: snowflake
+#       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+#       user: "{{ env_var('SNOWFLAKE_USER') }}"
+#       private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+#       private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
+#       role: "{{ env_var('SNOWFLAKE_ROLE', 'SYSADMIN') }}"
+#       database: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}"
+#       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+#       schema: marts
+#       threads: 8

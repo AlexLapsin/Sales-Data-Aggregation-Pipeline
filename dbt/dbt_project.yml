@@ -1,0 +1,118 @@
+# dbt_project.yml
+# Configuration for the Sales Data Aggregation Pipeline dbt project
+
+name: 'sales_data_pipeline'
+version: '1.0.0'
+config-version: 2
+
+# This setting configures which "profile" dbt uses for this project.
+profile: 'sales_data_pipeline'
+
+# These configurations specify where dbt should look for different types of files.
+model-paths: ["models"]
+analysis-paths: ["analysis"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"      # directory which will store compiled SQL files
+clean-targets:             # directories to be removed by `dbt clean`
+  - "target"
+  - "dbt_packages"
+
+# Configuring models
+models:
+  sales_data_pipeline:
+    # Config indicated by + and applies to all files under models/staging/
+    staging:
+      +materialized: view
+      +docs:
+        node_color: "lightblue"
+
+    # Config for intermediate models
+    intermediate:
+      +materialized: view
+      +docs:
+        node_color: "orange"
+
+    # Config for marts (final models)
+    marts:
+      +materialized: table
+      +docs:
+        node_color: "green"
+
+      # Specific table configurations for performance
+      dimensions:
+        +materialized: table
+        +cluster_by: ["effective_date", "is_current"]
+
+      facts:
+        +materialized: table
+        +cluster_by: ["date_key"]
+        +pre_hook: "{{ log('Building fact table: ' ~ this, info=True) }}"
+
+# Snapshot configurations
+snapshots:
+  sales_data_pipeline:
+    +target_schema: staging
+    +strategy: check
+    +check_cols: 'all'
+    +unique_key: 'id'
+    +updated_at: 'updated_at'
+
+# Test configurations
+tests:
+  sales_data_pipeline:
+    +store_failures: true
+    +schema: staging_tests
+
+# Seed configurations
+seeds:
+  sales_data_pipeline:
+    +schema: seeds
+
+    # Quote all columns for seeds to preserve casing
+    +quote_columns: true
+
+    # Configure specific seed files
+    holiday_calendar:
+      +column_types:
+        date: date
+        holiday_name: varchar(100)
+        is_federal: boolean
+
+# Source freshness configurations
+sources:
+  sales_data_pipeline:
+    +warn_after: {count: 2, period: hour}
+    +error_after: {count: 6, period: hour}
+
+# Documentation
+docs:
+  sales_data_pipeline:
+    +node_color: "purple"
+
+# Vars - variables that can be referenced in models
+vars:
+  # Date range for historical data loads
+  start_date: '2020-01-01'
+  end_date: '2030-12-31'
+
+  # Business logic variables
+  current_date: '{{ run_started_at.strftime("%Y-%m-%d") }}'
+
+  # SCD2 configuration
+  scd2_start_date: '1900-01-01'
+  scd2_end_date: '2099-12-31'
+
+  # Data quality thresholds
+  data_quality:
+    row_count_threshold: 1000
+    freshness_threshold_hours: 2
+    null_threshold_pct: 5.0
+
+# Macros configuration
+dispatch:
+  - macro_namespace: dbt_utils
+    search_order: ['sales_data_pipeline', 'dbt_utils']

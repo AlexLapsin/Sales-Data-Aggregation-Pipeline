@@ -1,0 +1,167 @@
+# models/intermediate/_intermediate.yml
+# Tests and documentation for intermediate models
+
+version: 2
+
+models:
+  - name: int_sales_unified
+    description: "Unified sales data combining streaming and batch sources with business enrichment"
+    columns:
+      - name: unified_sales_key
+        description: "Surrogate key for unified sales record"
+        tests:
+          - not_null
+          - unique
+
+      - name: order_id
+        description: "Business key - unique order identifier"
+        tests:
+          - not_null
+
+      - name: data_source
+        description: "Source of the sales data (STREAMING or BATCH)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['STREAMING', 'BATCH']
+
+      - name: transaction_size_category
+        description: "Categorization based on net amount"
+        tests:
+          - accepted_values:
+              values: ['SMALL', 'MEDIUM', 'LARGE', 'EXTRA_LARGE']
+
+      - name: discount_category
+        description: "Categorization based on discount rate"
+        tests:
+          - accepted_values:
+              values: ['NO_DISCOUNT', 'LOW_DISCOUNT', 'MEDIUM_DISCOUNT', 'HIGH_DISCOUNT']
+
+      - name: time_of_day
+        description: "Time period classification"
+        tests:
+          - accepted_values:
+              values: ['MORNING', 'AFTERNOON', 'EVENING', 'NIGHT']
+
+      - name: enhanced_quality_score
+        description: "Enhanced data quality score (0-110)"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 75
+              max_value: 110
+
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "estimated_profit >= 0 or profit_amount is not null"
+          config:
+            severity: warn
+
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_id
+            - data_source
+            - source_key
+
+  - name: int_product_scd2
+    description: "Product dimension with slowly changing dimension type 2 logic"
+    columns:
+      - name: product_scd2_key
+        description: "Surrogate key for SCD2 product record"
+        tests:
+          - not_null
+          - unique
+
+      - name: product_id
+        description: "Business key - product identifier"
+        tests:
+          - not_null
+
+      - name: effective_date
+        description: "Date when this version became effective"
+        tests:
+          - not_null
+
+      - name: expiration_date
+        description: "Date when this version expires"
+        tests:
+          - not_null
+
+      - name: is_current
+        description: "Flag indicating if this is the current version"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: version_number
+        description: "Sequential version number for this product"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+
+      - name: change_type
+        description: "Type of change that created this version"
+        tests:
+          - accepted_values:
+              values: ['NEW_PRODUCT', 'NAME_CHANGE', 'PRICE_CHANGE', 'COST_CHANGE', 'CATEGORY_CHANGE']
+
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "effective_date <= expiration_date"
+
+      # Ensure only one current record per product
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - product_id
+            - is_current
+          where: "is_current = true"
+
+  - name: int_store_scd2
+    description: "Store dimension with slowly changing dimension type 2 logic"
+    columns:
+      - name: store_scd2_key
+        description: "Surrogate key for SCD2 store record"
+        tests:
+          - not_null
+          - unique
+
+      - name: store_id
+        description: "Business key - store identifier"
+        tests:
+          - not_null
+
+      - name: maturity_level
+        description: "Store maturity classification"
+        tests:
+          - accepted_values:
+              values: ['NEW', 'DEVELOPING', 'MATURE', 'ESTABLISHED', 'LEGACY']
+
+      - name: geographic_cluster
+        description: "Geographic region grouping"
+        tests:
+          - accepted_values:
+              values: ['NORTHERN_REGIONS', 'SOUTHERN_REGIONS', 'COASTAL_REGIONS', 'CENTRAL_REGIONS', 'OTHER_REGIONS']
+
+    tests:
+      # Ensure only one current record per store
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - store_id
+            - is_current
+          where: "is_current = true"
+
+  - name: int_date_spine
+    description: "Complete date spine for date dimension generation"
+    columns:
+      - name: date_day
+        description: "Date value"
+        tests:
+          - not_null
+          - unique
+
+    tests:
+      # Ensure we have continuous dates with no gaps
+      - dbt_utils.expression_is_true:
+          expression: "(select count(*) from {{ this }}) >= 4000"  # At least 11 years of dates
