@@ -1,0 +1,22 @@
+# Snowflake connection and setup requirements
+
+# Core Snowflake connector
+snowflake-connector-python==3.5.0
+
+# SQL parsing and utilities
+sqlparse==0.4.4
+
+# Configuration and environment management
+python-dotenv==1.1.1
+
+# Data validation and testing
+pytest==7.4.4
+pytest-snowflake==0.1.0
+
+# Development and formatting
+black==24.1.1
+flake8==6.1.0
+mypy==1.7.1
+
+# Type stubs
+types-requests==2.31.0.20231231
