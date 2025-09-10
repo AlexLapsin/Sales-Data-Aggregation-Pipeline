@@ -1,0 +1,214 @@
+# docker-compose-cloud.yml
+# Docker Compose for cloud-based sales pipeline components
+# Supports both local development and cloud deployment scenarios
+
+version: '3.8'
+
+services:
+  # dbt development container
+  dbt-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dbt
+    container_name: sales-dbt-dev
+    volumes:
+      - ./dbt:/app/dbt:rw
+      - ~/.dbt:/root/.dbt:ro
+    environment:
+      - SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT}
+      - SNOWFLAKE_USER=${SNOWFLAKE_USER}
+      - SNOWFLAKE_PASSWORD=${SNOWFLAKE_PASSWORD}
+      - SNOWFLAKE_DATABASE=${SNOWFLAKE_DATABASE:-SALES_DW}
+      - SNOWFLAKE_WAREHOUSE=${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
+      - SNOWFLAKE_SCHEMA=${SNOWFLAKE_SCHEMA:-RAW}
+      - SNOWFLAKE_ROLE=${SNOWFLAKE_ROLE:-SYSADMIN}
+      - DBT_PROFILES_DIR=/app/dbt
+    working_dir: /app/dbt
+    command: tail -f /dev/null  # Keep container running for development
+    profiles:
+      - dbt-local
+    networks:
+      - sales-pipeline
+
+  # Spark development container
+  spark-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.spark
+    container_name: sales-spark-dev
+    volumes:
+      - ./spark:/app/spark:rw
+      - ./data:/app/data:ro
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_URL=spark://spark-dev:7077
+      - SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT}
+      - SNOWFLAKE_USER=${SNOWFLAKE_USER}
+      - SNOWFLAKE_PASSWORD=${SNOWFLAKE_PASSWORD}
+      - SNOWFLAKE_DATABASE=${SNOWFLAKE_DATABASE:-SALES_DW}
+      - SNOWFLAKE_WAREHOUSE=${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET}
+      - PROCESSED_BUCKET=${PROCESSED_BUCKET}
+    ports:
+      - "4040:4040"  # Spark UI
+      - "7077:7077"  # Spark Master
+      - "8080:8080"  # Spark Master Web UI
+    profiles:
+      - spark-local
+    networks:
+      - sales-pipeline
+
+  # Kafka Connect for cloud integration
+  kafka-connect-cloud:
+    image: confluentinc/cp-kafka-connect:7.4.0
+    container_name: sales-kafka-connect-cloud
+    depends_on:
+      - kafka
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect-cloud
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR
+      # Snowflake connector configuration
+      SNOWFLAKE_PRIVATE_KEY: ${SNOWFLAKE_PRIVATE_KEY:-}
+    volumes:
+      - ./streaming/connectors:/usr/share/confluent-hub-components:ro
+    profiles:
+      - kafka-cloud
+    networks:
+      - sales-pipeline
+
+  # Pipeline monitoring and alerting
+  pipeline-monitor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.monitor
+    container_name: sales-pipeline-monitor
+    environment:
+      - SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT}
+      - SNOWFLAKE_USER=${SNOWFLAKE_USER}
+      - SNOWFLAKE_PASSWORD=${SNOWFLAKE_PASSWORD}
+      - SNOWFLAKE_DATABASE=${SNOWFLAKE_DATABASE:-SALES_DW}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - ALERT_EMAIL=${ALERT_EMAIL}
+      - MONITOR_INTERVAL=${MONITOR_INTERVAL:-300}  # 5 minutes
+    volumes:
+      - ./monitoring:/app/monitoring:ro
+    profiles:
+      - monitoring
+    networks:
+      - sales-pipeline
+
+  # Data quality dashboard
+  data-quality-dashboard:
+    image: grafana/grafana:latest
+    container_name: sales-data-quality-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-snowflake-datasource
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    profiles:
+      - monitoring
+    networks:
+      - sales-pipeline
+
+  # Existing Kafka services (from original compose)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: sales-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    profiles:
+      - kafka-local
+      - kafka-cloud
+    networks:
+      - sales-pipeline
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: sales-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168  # 7 days
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824  # 1GB
+      KAFKA_COMPRESSION_TYPE: gzip
+    profiles:
+      - kafka-local
+      - kafka-cloud
+    networks:
+      - sales-pipeline
+
+  # Kafka UI for monitoring
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: sales-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect-cloud:8083
+    profiles:
+      - kafka-local
+      - kafka-cloud
+      - monitoring
+    networks:
+      - sales-pipeline
+
+networks:
+  sales-pipeline:
+    driver: bridge
+    name: sales-pipeline-network
+
+volumes:
+  grafana-storage:
+    driver: local
+
+# Profile usage examples:
+# Local Kafka development: docker-compose -f docker-compose-cloud.yml --profile kafka-local up -d
+# Cloud integration: docker-compose -f docker-compose-cloud.yml --profile kafka-cloud up -d
+# dbt development: docker-compose -f docker-compose-cloud.yml --profile dbt-local up -d
+# Spark development: docker-compose -f docker-compose-cloud.yml --profile spark-local up -d
+# Full monitoring: docker-compose -f docker-compose-cloud.yml --profile monitoring up -d
