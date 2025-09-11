@@ -15,6 +15,15 @@
 ![mypy](https://img.shields.io/badge/types-mypy-2A6DB2)
 ![pytest](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest)
 
+> ## ⚠️ **Upgrade in progress — docs will change**
+> 
+> This project is moving to a hybrid **batch + streaming** architecture:
+> **Kafka (local & MSK) → S3 → Spark/Databricks → Snowflake (dbt)**, orchestrated with **Airflow** on AWS (Terraform/Docker), with **DQ tests** and **Tableau** dashboards.
+> 
+> - Active work: [upgrade/kafka-snowflake-databricks](https://github.com/AlexLapsin/Sales-Data-Aggregation-Pipeline/tree/upgrade/kafka-snowflake-databricks)
+> - Use `main` for the last stable setup
+> - Expect breaking changes to folder structure, configs, and run commands
+
 ## TL;DR
 
 Sales Data Aggregation Pipeline is an end-to-end, fully containerized ETL pipeline that consolidates regional sales CSV files into a centralized PostgreSQL (RDS) data warehouse with a star schema. It uses Apache Airflow to orchestrate the workflow (extract -> transform -> load) and Terraform to provision all necessary AWS infrastructure (S3 buckets, RDS database, IAM roles). The project mimics a production-ready setup, leveraging Docker for consistent environments and including CI/tests to ensure code quality. In short, this pipeline demonstrates how raw data can be transformed into analytics-ready datasets in a reproducible, cloud-native way.
