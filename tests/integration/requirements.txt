@@ -1,0 +1,97 @@
+# End-to-End Integration Testing Requirements
+
+# Core testing framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.0
+
+# Data processing and validation
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=12.0.0
+
+# Database connectivity
+psycopg2-binary>=2.9.7
+sqlalchemy>=2.0.0
+snowflake-connector-python>=3.2.0
+
+# Message queue
+kafka-python>=2.0.2
+confluent-kafka>=2.2.0
+
+# Cloud and storage
+boto3>=1.28.0
+botocore>=1.31.0
+minio>=7.1.0
+
+# Docker and container management
+docker>=6.1.0
+docker-compose>=1.29.0
+
+# Performance monitoring
+psutil>=5.9.0
+py-cpuinfo>=9.0.0
+
+# HTTP and networking
+requests>=2.31.0
+aiohttp>=3.8.0
+
+# Configuration and serialization
+pyyaml>=6.0
+toml>=0.10.0
+
+# Async utilities
+asyncio-mqtt>=0.13.0
+aiofiles>=23.0.0
+
+# Data quality and validation
+great-expectations>=0.17.0
+cerberus>=1.3.4
+
+# Monitoring and observability
+prometheus-client>=0.17.0
+opencensus>=0.11.0
+
+# Spark integration (optional)
+pyspark>=3.4.0
+
+# dbt integration
+dbt-core>=1.6.0
+dbt-postgres>=1.6.0
+dbt-snowflake>=1.6.0
+
+# Airflow testing (optional)
+apache-airflow>=2.7.0
+
+# Development and debugging
+ipython>=8.14.0
+jupyter>=1.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Logging and structured output
+structlog>=23.1.0
+colorlog>=6.7.0
+
+# Time and date utilities
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# System utilities
+click>=8.1.0
+tqdm>=4.65.0
+
+# Security and encryption
+cryptography>=41.0.0
+bcrypt>=4.0.0
+
+# Mock and testing utilities
+responses>=0.23.0
+freezegun>=1.2.0
+factory-boy>=3.3.0
+
+# Type checking (development)
+mypy>=1.5.0
+types-requests>=2.31.0
+types-PyYAML>=6.0.0

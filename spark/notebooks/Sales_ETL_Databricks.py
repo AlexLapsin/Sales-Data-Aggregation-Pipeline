@@ -17,25 +17,25 @@
 # COMMAND ----------
 
 # Import required libraries
-from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import (
     col,
     lit,
     current_timestamp,
     to_date,
-    regexp_replace,
     when,
-    isnan,
-    isnull,
     trim,
     upper,
-    monotonically_increasing_id,
     input_file_name,
     date_format,
 )
-from pyspark.sql.types import *
+from pyspark.sql.types import (
+    StructType,
+    StructField,
+    StringType,
+    DoubleType,
+    IntegerType,
+)
 from datetime import datetime, timezone
-import os
 
 # COMMAND ----------
 

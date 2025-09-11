@@ -110,7 +110,7 @@ def create_test_csv_files(
 def test_spark_etl_local():
     """Test the Spark ETL job locally with sample data"""
 
-    print("🧪 Testing Spark ETL Job Locally")
+    print("Testing Spark ETL Job Locally")
     print("=" * 40)
 
     # Create temporary directory for test files
@@ -125,7 +125,7 @@ def test_spark_etl_local():
         config = get_spark_config("local")
         spark = create_spark_session_from_config(config)
 
-        print(f"✅ Created Spark session: {spark.sparkContext.appName}")
+        print(f"Created Spark session: {spark.sparkContext.appName}")
 
         # Mock Snowflake configuration for testing
         # In real tests, you'd use a test database or mock
@@ -137,35 +137,35 @@ def test_spark_etl_local():
         etl_job = SalesETLJob(spark)
 
         # Test data reading
-        print("\n📖 Testing data reading...")
+        print("\nTesting data reading...")
         input_path = f"file://{temp_dir}/*.csv"
         raw_df = etl_job.read_csv_files(input_path)
-        print(f"✅ Successfully read {raw_df.count()} records")
+        print(f"Successfully read {raw_df.count()} records")
 
         # Show sample data
-        print("\n📊 Sample raw data:")
+        print("\nSample raw data:")
         raw_df.show(5, truncate=False)
 
         # Test data cleaning
         print("\n🧹 Testing data cleaning...")
         batch_id = f"test_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         cleaned_df = etl_job.clean_and_transform(raw_df, batch_id)
-        print(f"✅ Successfully cleaned data, {cleaned_df.count()} records remaining")
+        print(f"Successfully cleaned data, {cleaned_df.count()} records remaining")
 
         # Show sample cleaned data
-        print("\n📊 Sample cleaned data:")
+        print("\nSample cleaned data:")
         cleaned_df.show(5, truncate=False)
 
         # Test schema mapping
-        print("\n🗂️ Testing schema mapping...")
+        print("\nTesting schema mapping...")
         final_df = etl_job.map_to_snowflake_schema(cleaned_df)
-        print(f"✅ Successfully mapped schema")
+        print(f"Successfully mapped schema")
 
         # Show final schema
-        print("\n📋 Final schema:")
+        print("\nFinal schema:")
         final_df.printSchema()
 
-        print("\n📊 Sample final data:")
+        print("\nSample final data:")
         final_df.show(5, truncate=False)
 
         # Test basic aggregations
@@ -178,8 +178,8 @@ def test_spark_etl_local():
         for row in category_counts:
             print(f"  - {row['CATEGORY']}: {row['count']}")
 
-        print("\n✅ All transformations completed successfully!")
-        print("⚠️  Note: Snowflake write test skipped (requires valid credentials)")
+        print("\nAll transformations completed successfully!")
+        print("Note: Snowflake write test skipped (requires valid credentials)")
 
         return True
 
@@ -201,13 +201,13 @@ def test_spark_etl_local():
 def test_configuration():
     """Test configuration loading"""
 
-    print("\n🔧 Testing Configuration")
+    print("\nTesting Configuration")
     print("=" * 30)
 
     # Test Spark configs
     for env in ["local", "databricks", "emr", "production"]:
         config = get_spark_config(env)
-        print(f"✅ {env}: {config.app_name}")
+        print(f"{env}: {config.app_name}")
 
     # Test Snowflake config (with mock values)
     os.environ["SNOWFLAKE_ACCOUNT"] = "test.account"
@@ -215,7 +215,7 @@ def test_configuration():
     os.environ["SNOWFLAKE_PASSWORD"] = "test_password"
 
     snowflake_config = SnowflakeConfig.from_env()
-    print(f"✅ Snowflake config: {snowflake_config.account}")
+    print(f"Snowflake config: {snowflake_config.account}")
 
     return True
 
@@ -229,7 +229,7 @@ def main():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    print("🚀 Starting Spark ETL Tests")
+    print("Starting Spark ETL Tests")
     print("=" * 50)
 
     success = True
@@ -249,7 +249,7 @@ def main():
         success = False
 
     if success:
-        print("\n🎉 All tests passed!")
+        print("\nAll tests passed!")
         return 0
     else:
         print("\n💥 Some tests failed!")

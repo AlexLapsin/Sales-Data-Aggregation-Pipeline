@@ -15,7 +15,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import (
@@ -23,13 +23,9 @@ from pyspark.sql.functions import (
     lit,
     current_timestamp,
     to_date,
-    regexp_replace,
     when,
-    isnan,
-    isnull,
     trim,
     upper,
-    monotonically_increasing_id,
     input_file_name,
     date_format,
 )
@@ -39,9 +35,6 @@ from pyspark.sql.types import (
     StringType,
     DoubleType,
     IntegerType,
-    DateType,
-    TimestampType,
-    DecimalType,
 )
 
 

@@ -1,0 +1,42 @@
+{
+  "name": "AWS MSK Configuration",
+  "description": "Configuration for testing with Amazon Managed Streaming for Kafka",
+  "kafka": {
+    "bootstrap_servers": "b-1.msk-cluster.kafka.us-west-2.amazonaws.com:9092,b-2.msk-cluster.kafka.us-west-2.amazonaws.com:9092",
+    "topic": "sales_events",
+    "test_topic_prefix": "test_kafka_producer",
+    "partitions": 6,
+    "replication_factor": 3
+  },
+  "producer": {
+    "acks": "all",
+    "retries": 5,
+    "retry_backoff_ms": 200,
+    "batch_size": 32768,
+    "linger_ms": 50,
+    "compression_type": "gzip",
+    "max_in_flight_requests_per_connection": 1,
+    "security_protocol": "PLAINTEXT",
+    "request_timeout_ms": 30000
+  },
+  "test_settings": {
+    "timeout_ms": 30000,
+    "max_test_events": 5000,
+    "performance_test_events": 50000,
+    "concurrent_producers": 5
+  },
+  "environment": {
+    "KAFKA_BOOTSTRAP_SERVERS": "b-1.msk-cluster.kafka.us-west-2.amazonaws.com:9092,b-2.msk-cluster.kafka.us-west-2.amazonaws.com:9092",
+    "KAFKA_TOPIC": "sales_events",
+    "AWS_REGION": "us-west-2"
+  },
+  "security": {
+    "ssl_check_hostname": true,
+    "ssl_cafile": null,
+    "ssl_certfile": null,
+    "ssl_keyfile": null,
+    "sasl_mechanism": null,
+    "sasl_plain_username": null,
+    "sasl_plain_password": null
+  }
+}

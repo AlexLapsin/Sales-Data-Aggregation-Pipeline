@@ -1,0 +1,366 @@
+# models/marts/_enhanced_marts_tests.yml
+# Enhanced testing configuration for mart models using custom generic tests
+
+version: 2
+
+models:
+  - name: fact_sales
+    description: "Enhanced testing for main sales fact table"
+    tests:
+      # Test referential integrity with enhanced error reporting
+      - enhanced_relationships:
+          column_name: date_key
+          to: ref('dim_date')
+          field: date_key
+          ignore_null: false
+
+      - enhanced_relationships:
+          column_name: product_key
+          to: ref('dim_product')
+          field: product_key
+          ignore_null: false
+
+      - enhanced_relationships:
+          column_name: store_key
+          to: ref('dim_store')
+          field: store_key
+          ignore_null: false
+
+      # Test aggregation consistency
+      - consistent_aggregation:
+          detail_column: quantity_sold
+          aggregate_column: quantity_sold  # Self-consistency check
+          aggregation_type: 'sum'
+          tolerance: 0.001
+
+      # Test reasonable cardinality for key dimensions
+      - reasonable_cardinality:
+          column_name: date_key
+          min_distinct_count: 30  # At least 30 days of data
+          max_distinct_count: 4000  # No more than ~11 years
+
+    columns:
+      - name: sales_key
+        tests:
+          - not_null
+          - unique
+          - string_length:
+              min_length: 32
+              max_length: 32  # MD5 hash length
+
+      - name: date_key
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 20200101
+              max_value: 20301231
+
+      - name: product_key
+        tests:
+          - not_null
+
+      - name: store_key
+        tests:
+          - not_null
+
+      - name: customer_key
+        tests:
+          # Allow nulls for anonymous customers
+          - enhanced_relationships:
+              to: ref('dim_customer')
+              field: customer_key
+              ignore_null: true
+
+      - name: order_id
+        tests:
+          - not_null
+          - string_length:
+              min_length: 5
+              max_length: 50
+
+      - name: quantity_sold
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 1
+              max_value: 1000
+
+      - name: net_sales_amount
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 0.01
+              max_value: 100000.00
+
+      - name: profit_amount
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: -10000.00  # Allow losses
+              max_value: 50000.00
+
+      - name: data_quality_score
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 80
+              max_value: 110
+
+  - name: fact_sales_daily
+    description: "Enhanced testing for daily aggregated sales fact"
+    tests:
+      # Test that grain is maintained (unique combinations)
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - date_key
+            - product_key
+            - store_key
+
+      # Test referential integrity
+      - enhanced_relationships:
+          column_name: date_key
+          to: ref('dim_date')
+          field: date_key
+
+    columns:
+      - name: daily_sales_key
+        tests:
+          - not_null
+          - unique
+
+      - name: date_key
+        tests:
+          - not_null
+
+      - name: product_key
+        tests:
+          - not_null
+
+      - name: store_key
+        tests:
+          - not_null
+
+      - name: transaction_count
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 1
+              max_value: 10000
+
+      - name: total_net_sales
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 0.01
+              max_value: 1000000.00
+
+      - name: unique_customers
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 1
+              max_value: 10000
+
+  - name: dim_date
+    description: "Enhanced testing for date dimension"
+    tests:
+      # Test for complete date range (no gaps)
+      - sequential_dates:
+          date_column: date_value
+          max_gap_days: 0  # No gaps allowed
+
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - unique
+          - acceptable_range:
+              min_value: 20200101
+              max_value: 20301231
+
+      - name: date_value
+        tests:
+          - not_null
+          - unique
+          - acceptable_range:
+              min_value: "'2020-01-01'"
+              max_value: "'2030-12-31'"
+
+      - name: year_number
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 2020
+              max_value: 2030
+
+      - name: quarter
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4]
+
+      - name: month_number
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 1
+              max_value: 12
+
+      - name: day_of_week
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 0
+              max_value: 6
+
+      - name: is_weekend
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: is_holiday
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+  - name: dim_product
+    description: "Enhanced testing for product dimension with SCD2"
+    tests:
+      # Test SCD2 integrity
+      - scd2_integrity:
+          business_key: product_id
+          effective_date_column: effective_date
+          expiration_date_column: expiration_date
+          is_current_column: is_current
+
+    columns:
+      - name: product_key
+        tests:
+          - not_null
+          - unique
+
+      - name: product_id
+        tests:
+          - not_null
+
+      - name: product_name
+        tests:
+          - not_null
+          - string_length:
+              min_length: 2
+              max_length: 200
+
+      - name: category
+        tests:
+          - not_null
+          - reasonable_cardinality:
+              min_distinct_count: 3
+              max_distinct_count: 50
+
+      - name: unit_price
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 0.01
+              max_value: 50000.00
+
+      - name: is_current
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: effective_date
+        tests:
+          - not_null
+
+      - name: expiration_date
+        tests:
+          - not_null
+          - mutually_exclusive_ranges:
+              lower_bound_column: effective_date
+              upper_bound_column: expiration_date
+
+  - name: dim_store
+    description: "Enhanced testing for store dimension with SCD2"
+    tests:
+      # Test SCD2 integrity
+      - scd2_integrity:
+          business_key: store_id
+          effective_date_column: effective_date
+          expiration_date_column: expiration_date
+          is_current_column: is_current
+
+    columns:
+      - name: store_key
+        tests:
+          - not_null
+          - unique
+
+      - name: store_id
+        tests:
+          - not_null
+
+      - name: store_name
+        tests:
+          - not_null
+          - string_length:
+              min_length: 2
+              max_length: 100
+
+      - name: region
+        tests:
+          - not_null
+          - reasonable_cardinality:
+              min_distinct_count: 1
+              max_distinct_count: 20
+
+      - name: store_type
+        tests:
+          - accepted_values:
+              values: ['FLAGSHIP', 'OUTLET', 'KIOSK', 'ONLINE', 'WAREHOUSE']
+
+      - name: is_current
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+  - name: dim_customer
+    description: "Enhanced testing for customer dimension"
+    columns:
+      - name: customer_key
+        tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        tests:
+          - not_null
+          - unique
+
+      - name: customer_segment
+        tests:
+          - accepted_values:
+              values: ['CONSUMER', 'CORPORATE', 'HOME_OFFICE', 'UNKNOWN']
+
+      - name: customer_value_tier
+        tests:
+          - accepted_values:
+              values: ['VIP', 'HIGH_VALUE', 'REGULAR', 'OCCASIONAL']
+
+      - name: total_spent
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 0
+              max_value: 1000000
+
+      - name: total_orders
+        tests:
+          - not_null
+          - acceptable_range:
+              min_value: 1
+              max_value: 10000
