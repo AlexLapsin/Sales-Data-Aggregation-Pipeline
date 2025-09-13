@@ -419,7 +419,7 @@ class E2EPipelineTestSuite:
             # Example using subprocess to run the Spark job
             cmd = [
                 "python",
-                "spark/sales_batch_job.py",
+                "src/spark/jobs/batch_etl.py",
                 "--input-path",
                 input_path,
                 "--output-table",

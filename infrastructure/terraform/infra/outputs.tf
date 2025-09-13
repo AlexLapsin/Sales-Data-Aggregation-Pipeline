@@ -1,0 +1,37 @@
+output "raw_bucket"        { value = module.storage.raw_bucket_name }
+output "processed_bucket"  { value = module.storage.processed_bucket_name }
+# Legacy PostgreSQL database outputs have been moved to legacy/infrastructure/terraform/
+# If you need PostgreSQL support, see legacy/README.md for migration guidance
+output "etl_role_arn"      { value = module.iam.role_arn }
+output "etl_policy_arn"    { value = module.iam.policy_arn }
+
+# Kafka outputs (conditional)
+output "kafka_bootstrap_servers" {
+  description = "Kafka bootstrap servers (MSK or Docker)"
+  value       = var.ENABLE_MSK ? module.kafka[0].bootstrap_brokers : "localhost:9092"
+}
+
+output "kafka_zookeeper_connect" {
+  description = "Zookeeper connection string"
+  value       = var.ENABLE_MSK ? module.kafka[0].zookeeper_connect : "localhost:2181"
+}
+
+output "msk_cluster_arn" {
+  description = "ARN of the MSK cluster"
+  value       = var.ENABLE_MSK ? module.kafka[0].cluster_arn : null
+}
+
+# Deployment summary
+output "deployment_summary" {
+  description = "Summary of deployed infrastructure"
+  value = {
+    project_name      = var.PROJECT_NAME
+    environment       = var.ENVIRONMENT
+    aws_region        = var.AWS_REGION
+    kafka_mode        = var.ENABLE_MSK ? "AWS MSK" : "Docker Local"
+    raw_bucket        = module.storage.raw_bucket_name
+    processed_bucket  = module.storage.processed_bucket_name
+    # rds_endpoint removed - PostgreSQL database moved to legacy/
+    snowflake_enabled = var.ENABLE_SNOWFLAKE_OBJECTS
+  }
+}

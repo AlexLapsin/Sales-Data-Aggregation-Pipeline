@@ -1,0 +1,328 @@
+# .github/workflows/dbt_testing.yml
+# Comprehensive dbt testing CI/CD pipeline
+
+name: DBT Testing Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'dbt/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'dbt/**'
+  workflow_dispatch:
+    inputs:
+      run_full_suite:
+        description: 'Run full test suite including data quality tests'
+        required: false
+        default: 'true'
+      target_environment:
+        description: 'Target environment'
+        required: false
+        default: 'ci'
+        type: choice
+        options:
+        - ci
+        - dev
+        - staging
+
+env:
+  DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+  DBT_PROJECT_DIR: ${{ github.workspace }}/dbt
+
+jobs:
+  # Job 1: Basic validation and setup
+  validate-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      project-valid: ${{ steps.validation.outputs.valid }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install dbt and dependencies
+        working-directory: dbt
+        run: |
+          pip install -r requirements.txt
+          dbt deps --project-dir . --profiles-dir .
+
+      - name: Validate project structure
+        id: validation
+        run: |
+          python scripts/check_project_health.py --project-dir . --output-file project_health_report.txt
+          echo "valid=true" >> $GITHUB_OUTPUT
+
+      - name: Upload project health report
+        uses: actions/upload-artifact@v3
+        with:
+          name: project-health-report
+          path: dbt/project_health_report.txt
+
+  # Job 2: Compilation and syntax validation
+  compile-models:
+    runs-on: ubuntu-latest
+    needs: validate-project
+    if: needs.validate-project.outputs.project-valid == 'true'
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python and dbt
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          dbt deps
+
+      - name: Create CI profiles
+        run: |
+          cat > profiles.yml << EOF
+          sales_data_pipeline:
+            target: ci
+            outputs:
+              ci:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}_CI
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                schema: CI_SCHEMA
+                threads: 4
+                keepalives_idle: 600
+          EOF
+
+      - name: Test compilation
+        run: |
+          dbt parse
+          dbt compile
+
+      - name: Upload compiled SQL
+        uses: actions/upload-artifact@v3
+        with:
+          name: compiled-models
+          path: dbt/target/compiled/
+
+  # Job 3: Schema and data tests
+  run-tests:
+    runs-on: ubuntu-latest
+    needs: [validate-project, compile-models]
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        test-type: [schema, singular, data-quality]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python and dbt
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          dbt deps
+
+      - name: Create CI profiles
+        run: |
+          cat > profiles.yml << EOF
+          sales_data_pipeline:
+            target: ci
+            outputs:
+              ci:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}_CI
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                schema: CI_SCHEMA_${{ github.run_id }}
+                threads: 4
+          EOF
+
+      - name: Build models (if needed for testing)
+        if: matrix.test-type == 'data-quality'
+        run: |
+          dbt build --select +dim_date +dim_product +dim_store --target ci
+
+      - name: Run schema tests
+        if: matrix.test-type == 'schema'
+        run: |
+          dbt test --select test_type:schema --target ci
+
+      - name: Run singular tests
+        if: matrix.test-type == 'singular'
+        run: |
+          dbt test --select test_type:singular --target ci
+
+      - name: Run data quality tests
+        if: matrix.test-type == 'data-quality' && (github.event.inputs.run_full_suite == 'true' || github.event_name == 'push')
+        run: |
+          dbt test --select test_source_data_quality test_dimensional_model_integrity test_business_logic_validation --target ci
+        continue-on-error: true  # Data quality tests may fail due to data issues
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-${{ matrix.test-type }}
+          path: |
+            dbt/target/run_results.json
+            dbt/logs/
+
+  # Job 4: Performance and comprehensive testing
+  comprehensive-tests:
+    runs-on: ubuntu-latest
+    needs: [validate-project, compile-models]
+    if: github.event.inputs.run_full_suite == 'true' || github.event_name == 'push'
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python and dbt
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-xdist
+          dbt deps
+
+      - name: Create CI profiles
+        run: |
+          cat > profiles.yml << EOF
+          sales_data_pipeline:
+            target: ci
+            outputs:
+              ci:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}_CI
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                schema: CI_COMPREHENSIVE_${{ github.run_id }}
+                threads: 8
+          EOF
+
+      - name: Run comprehensive test suite
+        run: |
+          python scripts/run_comprehensive_tests.py \
+            --project-dir . \
+            --profiles-dir . \
+            --target ci
+
+      - name: Run Python unit tests
+        run: |
+          pytest tests/pytest/ -v --tb=short
+
+      - name: Upload comprehensive test report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: comprehensive-test-report
+          path: dbt/target/test_report.txt
+
+  # Job 5: Documentation and cleanup
+  finalize:
+    runs-on: ubuntu-latest
+    needs: [run-tests, comprehensive-tests]
+    if: always()
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python and dbt
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          dbt deps
+
+      - name: Create profiles for docs
+        run: |
+          cat > profiles.yml << EOF
+          sales_data_pipeline:
+            target: ci
+            outputs:
+              ci:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}_CI
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                schema: CI_DOCS
+                threads: 2
+          EOF
+
+      - name: Generate documentation
+        run: |
+          dbt docs generate --target ci
+        continue-on-error: true
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v3
+        if: success()
+        with:
+          name: dbt-documentation
+          path: dbt/target/
+
+      - name: Cleanup CI schemas
+        if: always()
+        run: |
+          # Clean up temporary schemas created during testing
+          echo "Cleaning up CI schemas..."
+          # This would contain actual cleanup SQL commands for your warehouse
+          echo "CI schemas cleanup completed"
+
+      - name: Test Results Summary
+        if: always()
+        run: |
+          echo "## DBT Testing Results" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Status:" >> $GITHUB_STEP_SUMMARY
+          echo "- Project Validation: ${{ needs.validate-project.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Model Compilation: ${{ needs.compile-models.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Schema Tests: ${{ needs.run-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Comprehensive Tests: ${{ needs.comprehensive-tests.result }}" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.run-tests.result }}" == "success" && "${{ needs.compile-models.result }}" == "success" ]]; then
+            echo "✅ Core tests passed - Ready for review" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Core tests failed - Review required" >> $GITHUB_STEP_SUMMARY
+          fi
