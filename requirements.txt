@@ -1,16 +1,19 @@
-# requirements.txt  ← runtime (what ETL actually imports)
-boto3==1.39.11
-botocore==1.39.11
-s3transfer==0.13.1
-jmespath==1.0.1
-urllib3==2.5.0
-python-dotenv==1.1.1
-psycopg2-binary==2.9.10
-pandas==2.3.1
-numpy==2.3.1
-pyarrow==20.0.0
-python-dateutil==2.9.0.post0
-pytz==2025.2
-tzdata==2025.2
-six==1.17.0
-packaging==25.0
+# dbt requirements for Snowflake data transformations
+
+# Core dbt
+dbt-core==1.7.0
+dbt-snowflake==1.7.0
+
+# Additional packages for enhanced functionality
+dbt-utils==1.1.1
+dbt-expectations==0.10.0
+
+# Development and testing utilities
+sqlfluff==2.3.5
+sqlfluff-templater-dbt==2.3.5
+
+# Optional: for advanced data profiling
+great-expectations==0.18.0
+
+# Development dependencies
+pre-commit==3.5.0

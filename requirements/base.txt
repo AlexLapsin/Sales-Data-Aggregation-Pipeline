@@ -1,0 +1,19 @@
+# requirements.txt  ← runtime (what ETL actually imports)
+boto3==1.39.11
+botocore==1.39.11
+s3transfer==0.13.1
+jmespath==1.0.1
+urllib3==2.5.0
+python-dotenv==1.1.1
+psycopg2-binary==2.9.10
+pandas==2.3.1
+numpy==2.3.1
+pyarrow==20.0.0
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzdata==2025.2
+six==1.17.0
+packaging==25.0
+
+# Kafka dependencies
+kafka-python==2.0.2

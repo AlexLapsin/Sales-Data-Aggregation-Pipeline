@@ -1,0 +1,30 @@
+{
+  "name": "Docker Kafka Configuration",
+  "description": "Configuration for testing with local Docker Kafka",
+  "kafka": {
+    "bootstrap_servers": "localhost:9092",
+    "topic": "sales_events",
+    "test_topic_prefix": "test_kafka_producer",
+    "partitions": 3,
+    "replication_factor": 1
+  },
+  "producer": {
+    "acks": "all",
+    "retries": 3,
+    "retry_backoff_ms": 100,
+    "batch_size": 16384,
+    "linger_ms": 10,
+    "compression_type": "gzip",
+    "max_in_flight_requests_per_connection": 1
+  },
+  "test_settings": {
+    "timeout_ms": 10000,
+    "max_test_events": 1000,
+    "performance_test_events": 10000,
+    "concurrent_producers": 3
+  },
+  "environment": {
+    "KAFKA_BOOTSTRAP_SERVERS": "localhost:9092",
+    "KAFKA_TOPIC": "sales_events"
+  }
+}

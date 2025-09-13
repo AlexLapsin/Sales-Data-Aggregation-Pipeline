@@ -1,0 +1,147 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sales-data-aggregation-pipeline"
+version = "1.0.0"
+description = "A production-ready ETL pipeline for aggregating regional sales data"
+authors = [
+    {name = "Data Engineering Team", email = "data-eng@company.com"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.9"
+keywords = ["etl", "data-pipeline", "airflow", "spark", "kafka", "dbt"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering",
+]
+
+dependencies = [
+    "boto3>=1.39.0",
+    "botocore>=1.39.0",
+    "s3transfer>=0.13.0",
+    "python-dotenv>=1.1.0",
+    "psycopg2-binary>=2.9.0",
+    "pandas>=2.3.0",
+    "numpy>=2.3.0",
+    "pyarrow>=20.0.0",
+    "python-dateutil>=2.9.0",
+    "pytz>=2025.2",
+    "kafka-python>=2.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+    "isort>=5.12.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "moto[server,s3,rds]>=4.2.0",
+    "testcontainers>=3.7.0",
+]
+spark = [
+    "pyspark>=3.4.0",
+    "delta-spark>=2.4.0",
+]
+dbt = [
+    "dbt-core>=1.6.0",
+    "dbt-postgres>=1.6.0",
+    "dbt-snowflake>=1.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/sales-data-aggregation-pipeline"
+Documentation = "https://your-org.github.io/sales-data-aggregation-pipeline"
+Repository = "https://github.com/your-org/sales-data-aggregation-pipeline"
+Issues = "https://github.com/your-org/sales-data-aggregation-pipeline/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["streaming", "spark", "utils"]
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.git
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["spark", "streaming", "utils"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+exclude = [
+    "\\.venv/",
+    "build/",
+    "dist/",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = [
+    "tests",
+]
+python_files = [
+    "test_*.py",
+    "*_test.py",
+]
+python_classes = [
+    "Test*",
+]
+python_functions = [
+    "test_*",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "tests/*",
+    "*.venv/*",
+    "build/*",
+    "dist/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]

@@ -81,6 +81,20 @@ export TF_VAR_TRUSTED_PRINCIPAL_ARN="${TRUSTED_PRINCIPAL_ARN:-}"
 [[ -n "${DB_BACKUP_RETENTION_DAYS:-}" ]]  && export TF_VAR_DB_BACKUP_RETENTION_DAYS="${DB_BACKUP_RETENTION_DAYS}"
 [[ -n "${PUBLICLY_ACCESSIBLE:-}" ]]       && export TF_VAR_PUBLICLY_ACCESSIBLE="${PUBLICLY_ACCESSIBLE}"
 
+# Kafka/MSK variables
+[[ -n "${ENABLE_MSK:-}" ]]                 && export TF_VAR_ENABLE_MSK="${ENABLE_MSK}"
+[[ -n "${KAFKA_VERSION:-}" ]]              && export TF_VAR_KAFKA_VERSION="${KAFKA_VERSION}"
+[[ -n "${BROKER_INSTANCE_TYPE:-}" ]]       && export TF_VAR_BROKER_INSTANCE_TYPE="${BROKER_INSTANCE_TYPE}"
+[[ -n "${NUMBER_OF_BROKERS:-}" ]]          && export TF_VAR_NUMBER_OF_BROKERS="${NUMBER_OF_BROKERS}"
+
+# Snowflake variables
+[[ -n "${ENABLE_SNOWFLAKE_OBJECTS:-}" ]]   && export TF_VAR_ENABLE_SNOWFLAKE_OBJECTS="${ENABLE_SNOWFLAKE_OBJECTS}"
+[[ -n "${SNOWFLAKE_ACCOUNT:-}" ]]          && export TF_VAR_SNOWFLAKE_ACCOUNT="${SNOWFLAKE_ACCOUNT}"
+[[ -n "${SNOWFLAKE_USER:-}" ]]             && export TF_VAR_SNOWFLAKE_USER="${SNOWFLAKE_USER}"
+[[ -n "${SNOWFLAKE_PASSWORD:-}" ]]         && export TF_VAR_SNOWFLAKE_PASSWORD="${SNOWFLAKE_PASSWORD}"
+[[ -n "${SNOWFLAKE_ROLE:-}" ]]             && export TF_VAR_SNOWFLAKE_ROLE="${SNOWFLAKE_ROLE}"
+[[ -n "${SNOWFLAKE_REGION:-}" ]]           && export TF_VAR_SNOWFLAKE_REGION="${SNOWFLAKE_REGION}"
+
 # --- protect AWS credential chain -----------------------------------------
 # If you prefer using an AWS profile for Terraform, keep it working:
 # - If AWS_PROFILE is set, clear inline creds so the profile wins.

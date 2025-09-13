@@ -1,0 +1,71 @@
+development:
+  debug: true
+  log_level: DEBUG
+  enable_profiling: true
+  test_data_size: 1000
+  batch_size: 100
+
+  # Database settings
+  database:
+    connection_pool_size: 5
+    query_timeout: 30
+
+  # Spark settings
+  spark:
+    executor_memory: "1g"
+    executor_cores: 2
+    max_result_size: "1g"
+
+  # Kafka settings
+  kafka:
+    batch_size: 100
+    linger_ms: 10
+    enable_auto_commit: true
+
+staging:
+  debug: false
+  log_level: INFO
+  enable_profiling: false
+  test_data_size: 10000
+  batch_size: 1000
+
+  # Database settings
+  database:
+    connection_pool_size: 10
+    query_timeout: 60
+
+  # Spark settings
+  spark:
+    executor_memory: "2g"
+    executor_cores: 4
+    max_result_size: "2g"
+
+  # Kafka settings
+  kafka:
+    batch_size: 1000
+    linger_ms: 5
+    enable_auto_commit: true
+
+production:
+  debug: false
+  log_level: WARNING
+  enable_profiling: false
+  test_data_size: 100000
+  batch_size: 5000
+
+  # Database settings
+  database:
+    connection_pool_size: 20
+    query_timeout: 120
+
+  # Spark settings
+  spark:
+    executor_memory: "4g"
+    executor_cores: 8
+    max_result_size: "4g"
+
+  # Kafka settings
+  kafka:
+    batch_size: 5000
+    linger_ms: 1
+    enable_auto_commit: false

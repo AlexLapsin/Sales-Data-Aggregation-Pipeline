@@ -1,75 +1,549 @@
-# ── Python
+# =============================================================================
+# COMPREHENSIVE .GITIGNORE FOR DATA ENGINEERING PROJECTS
+# =============================================================================
+# This .gitignore covers modern data engineering stacks including:
+# Python, Spark, Kafka, dbt, Airflow, Terraform, Docker, Snowflake, Databricks
+# =============================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PYTHON DEVELOPMENT
+# ─────────────────────────────────────────────────────────────────────────────
+# Python runtime bytecode and compiled files
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *$py.class
-.mypy_cache/
+
+# Python package artifacts
 *.egg-info/
 *.egg
+*.whl
 build/
 dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+
+# Python installation and dependency management
 pip-log.txt
 pip-delete-this-directory.txt
-htmlcov/
+.pip-cache/
+pip-selfcheck.json
+
+# Python testing and quality tools
 .tox/
 .nox/
 .coverage
 .coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
 .pytest_cache/
-.ipynb_checkpoints/
+.cache/
+htmlcov/
 
-# ── Virtual environments / env files
+# Python type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Python profiling
+.prof
+
+# Python documentation
+docs/_build/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VIRTUAL ENVIRONMENTS & CREDENTIALS
+# ─────────────────────────────────────────────────────────────────────────────
+# Python virtual environments
 venv/
 .venv/
 ENV/
+env/
+.env/
+env.bak/
+venv.bak/
+
+# Environment files (contains sensitive credentials)
 .env
-.env_*/
 .env.*
-!.env.example  # keep the sample
+.env_*
+.envrc
+!.env.example  # keep the sample/template
 
-# Keep the data folder but ignore its contents
-opt/data/**
+# Pyenv version files
+.python-version
 
-# ── IDEs / Editors
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
+# Pipenv files
+Pipfile.lock
 
-# ── OS cruft
-.DS_Store
-Thumbs.db
+# Poetry files
+poetry.lock
 
-# ── Airflow local volumes
+# ─────────────────────────────────────────────────────────────────────────────
+# DATA ENGINEERING ARTIFACTS
+# ─────────────────────────────────────────────────────────────────────────────
+# Data files - Raw data should not be committed to version control
+data/
+datasets/
+raw_data/
+processed_data/
+output/
+tmp/
+temp/
+temporary/
+cache/
+
+# Keep data structure but ignore contents
+data/**
+!data/.gitkeep
+!data/README.md
+
+# Common data file formats
+*.csv
+*.tsv
+*.json
+*.jsonl
+*.ndjson
+*.parquet
+*.avro
+*.orc
+*.delta
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.xlsx
+*.xls
+
+# Database dumps and backups
+*.sql.gz
+*.dump
+*.backup
+*.bak
+
+# ─────────────────────────────────────────────────────────────────────────────
+# APACHE SPARK & HADOOP ECOSYSTEM
+# ─────────────────────────────────────────────────────────────────────────────
+# Spark local directories
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Spark checkpointing and streaming
+checkpoints/
+checkpoint/
+_spark_metadata/
+
+# Hadoop/HDFS
+.hadoop-metrics.properties
+
+# Spark history server
+spark-events/
+
+# Spark application logs
+spark*.log
+application_*.log
+
+# Hive metastore
+metastore/
+
+# Spark temporary files
+*.crc
+_SUCCESS
+_committed_*
+_started_*
+
+# ─────────────────────────────────────────────────────────────────────────────
+# APACHE KAFKA & STREAMING
+# ─────────────────────────────────────────────────────────────────────────────
+# Kafka logs and state
+kafka-logs/
+kafka_*
+*.kafka
+
+# Kafka consumer offsets
+consumer_offsets/
+
+# Schema registry
+schemas/
+
+# Kafka Connect
+connect-offsets/
+connect-configs/
+connect-status/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DBT (DATA BUILD TOOL)
+# ─────────────────────────────────────────────────────────────────────────────
+# dbt compilation artifacts
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# dbt profiles (may contain credentials)
+dbt/profiles.yml
+profiles.yml
+
+# dbt manifest files (can be large)
+dbt/manifest.json
+dbt/catalog.json
+dbt/run_results.json
+dbt/sources.json
+
+# dbt partial parsing
+dbt/partial_parse.msgpack
+
+# ─────────────────────────────────────────────────────────────────────────────
+# APACHE AIRFLOW
+# ─────────────────────────────────────────────────────────────────────────────
+# Airflow runtime files
 airflow/logs/
 airflow/postgres/
 airflow/plugins/__pycache__/
+airflow/airflow.db
+airflow/airflow.cfg
+airflow/webserver_config.py
+airflow/unittests.cfg
 
-# ── Docker
-docker-compose.override.yml
+# Airflow process files
+airflow-scheduler.pid
+airflow-webserver.pid
+airflow-worker.pid
 
-# ── Logs
-*.log
-logs/
+# Airflow standalone files
+standalone_admin_password.txt
 
-# ── Coverage
-coverage.xml
+# Airflow Celery
+celerybeat-schedule
+celerybeat.pid
 
-# ── Terraform (infra/)
-infra/.terraform/
-infra/*.tfstate*
-infra/terraform.tfstate
-infra/terraform.tfstate.backup
-infra/tfplan
-infra/backend.hcl
+# ─────────────────────────────────────────────────────────────────────────────
+# TERRAFORM & INFRASTRUCTURE AS CODE
+# ─────────────────────────────────────────────────────────────────────────────
+# Terraform state files (contain sensitive information)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
 
-# ── Terraform (root-level fallbacks)
-terraform.tfstate
-terraform.tfstate.*
+# Terraform variable files (may contain secrets)
 *.tfvars
 *.auto.tfvars
-dynamic.auto.tfvars
+terraform.tfvars
+secret.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 
-# Keep the provider lockfile committed:
-!infra/.terraform.lock.hcl
+# Terraform runtime
+.terraform/
+.terraform.lock.hcl
+!infra/.terraform.lock.hcl  # keep lockfile in infra directory
+
+# Terraform plans
+*.tfplan
+tfplan
+plan.out
+
+# Terraform crash logs
+crash.log
+crash.*.log
+
+# Terraform CLI configuration
+.terraformrc
+terraform.rc
+
+# Terraform backend configuration
+backend.hcl
+backend.tf
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DOCKER & CONTAINERIZATION
+# ─────────────────────────────────────────────────────────────────────────────
+# Docker override files
+docker-compose.override.yml
+docker-compose.override.yaml
+docker-compose.local.yml
+
+# Docker build context
+.dockerignore
+
+# Docker volumes and data
+volumes/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLOUD PLATFORMS & CREDENTIALS
+# ─────────────────────────────────────────────────────────────────────────────
+# AWS credentials
+.aws/
+aws-credentials
+credentials
+
+# Google Cloud credentials
+.gcp/
+gcp-credentials.json
+service-account*.json
+
+# Azure credentials
+.azure/
+
+# Snowflake private key files
+snowflake_private_key.p8
+snowflake_private_key.pem
+rsa_key.p8
+rsa_key.pem
+
+# Databricks configuration
+.databrickscfg
+databricks.cfg
+
+# Kubernetes configs
+kubeconfig
+.kube/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JUPYTER NOTEBOOKS
+# ─────────────────────────────────────────────────────────────────────────────
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Jupyter notebook outputs (remove executed cell outputs)
+# Uncomment if you want to track notebooks without outputs
+# *.ipynb
+
+# JupyterLab settings
+.jupyter/
+
+# IPython
+profile_default/
+ipython_config.py
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DEVELOPMENT TOOLS & IDEs
+# ─────────────────────────────────────────────────────────────────────────────
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# IntelliJ IDEA / PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Atom
+.atom/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OPERATING SYSTEM FILES
+# ─────────────────────────────────────────────────────────────────────────────
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOGS & MONITORING
+# ─────────────────────────────────────────────────────────────────────────────
+# General log files
+*.log
+*.log.*
+logs/
+log/
+
+# Application specific logs
+nohup.out
+error.log
+access.log
+debug.log
+trace.log
+
+# Monitoring and metrics
+metrics/
+monitoring/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY & SECRETS
+# ─────────────────────────────────────────────────────────────────────────────
+# SSL certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+*.ca-bundle
+*.p12
+*.pfx
+
+# API keys and secrets
+secrets/
+secret/
+.secrets/
+api_keys/
+tokens/
+
+# Password files
+passwords.txt
+.passwd
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BACKUP & TEMPORARY FILES
+# ─────────────────────────────────────────────────────────────────────────────
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+*.tmp
+
+# Temporary directories
+tmp/
+temp/
+.tmp/
+
+# Archive files (unless specifically needed)
+*.zip
+*.tar.gz
+*.tgz
+*.tar.bz2
+*.tbz2
+*.tar.xz
+*.txz
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TESTING & QUALITY ASSURANCE
+# ─────────────────────────────────────────────────────────────────────────────
+# Test artifacts
+.pytest_cache/
+.cache/
+test-results/
+test_results/
+test-output/
+test_output/
+
+# Coverage reports
+coverage.xml
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+
+# Mutation testing
+.mutmut-cache
+
+# Performance testing
+.benchmarks/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PACKAGE MANAGERS & BUILD TOOLS
+# ─────────────────────────────────────────────────────────────────────────────
+# npm/yarn (if using Node.js tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+
+# Maven (if using Java tools)
+target/
+.m2/
+
+# Gradle (if using Java/Scala tools)
+.gradle/
+build/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MISCELLANEOUS
+# ─────────────────────────────────────────────────────────────────────────────
+# Configuration files that may contain secrets
+config.ini
+config.yaml
+config.yml
+local_settings.py
+settings_local.py
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Compiled dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Database migration files (sometimes auto-generated)
+migrations/versions/
+alembic/versions/
+
+# =============================================================================
+# END OF .GITIGNORE
+# =============================================================================

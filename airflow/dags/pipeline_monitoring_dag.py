@@ -42,11 +42,11 @@ ENV_VARS = {
     "KAFKA_BOOTSTRAP_SERVERS": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
 }
 
+
 # ---------------- Helper Functions ----------------
 def generate_daily_report(**context):
     """Generate comprehensive daily pipeline report"""
     from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
-    import json
 
     hook = SnowflakeHook(
         snowflake_conn_id="snowflake_default",
@@ -330,7 +330,7 @@ with DAG(
         <h2>Daily Sales Pipeline Report</h2>
         <p><strong>Execution Date:</strong> {{ ds }}</p>
 
-        <h3>📊 Daily Metrics</h3>
+        <h3>Daily Metrics</h3>
         <ul>
             <li><strong>Total Transactions:</strong> {{ ti.xcom_pull(key='daily_report', task_ids='generate_daily_report')['total_transactions'] | default('N/A') }}</li>
             <li><strong>Total Sales:</strong> ${{ ti.xcom_pull(key='daily_report', task_ids='generate_daily_report')['total_sales'] | default('N/A') | round(2) }}</li>
@@ -344,14 +344,14 @@ with DAG(
             <li><strong>Sales Growth:</strong> {{ ti.xcom_pull(key='daily_report', task_ids='generate_daily_report')['sales_growth'] | default('N/A') }}%</li>
         </ul>
 
-        <h3>🔍 Quality Issues</h3>
+        <h3>Quality Issues</h3>
         {% set quality_issues = ti.xcom_pull(key='quality_issues', task_ids='check_quality_trends') %}
         {% if quality_issues %}
             {% for issue in quality_issues %}
-            <p style="color: orange;">⚠️ {{ issue.date }}: {{ issue.issue }}</p>
+            <p style="color: orange;">⚠ {{ issue.date }}: {{ issue.issue }}</p>
             {% endfor %}
         {% else %}
-            <p style="color: green;">✅ No quality issues detected</p>
+            <p style="color: green;">No quality issues detected</p>
         {% endif %}
 
         <p><em>This is an automated report from the Sales Data Pipeline monitoring system.</em></p>
@@ -364,7 +364,7 @@ with DAG(
         task_id="quality_alert_slack",
         http_conn_id="slack_webhook",
         message="""
-        🚨 Data Quality Alert - {{ ds }}
+        Data Quality Alert - {{ ds }}
 
         {% set quality_issues = ti.xcom_pull(key='quality_issues', task_ids='check_quality_trends') %}
         {% if quality_issues and quality_issues|length > 0 %}

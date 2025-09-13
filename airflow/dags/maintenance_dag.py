@@ -42,6 +42,7 @@ ENV_VARS = {
     "S3_BUCKET": os.getenv("S3_BUCKET"),
 }
 
+
 # ---------------- Helper Functions ----------------
 def calculate_table_sizes(**context):
     """Calculate table sizes and recommend optimization actions"""

@@ -14,11 +14,8 @@ from airflow import DAG
 from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from airflow.providers.databricks.operators.databricks import DatabricksRunNowOperator
 from airflow.providers.docker.operators.docker import DockerOperator
-from airflow.providers.http.sensors.http import HttpSensor
 from airflow.operators.python import PythonOperator, BranchPythonOperator
-from airflow.operators.bash import BashOperator
 from airflow.operators.dummy import DummyOperator
-from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.providers.slack.operators.slack_webhook import SlackWebhookOperator
 from airflow.utils.trigger_rule import TriggerRule
 from docker.types import Mount
@@ -64,6 +61,7 @@ ENV_VARS = {
 
 # Docker image for pipeline tasks
 PIPELINE_IMAGE = os.getenv("PIPELINE_IMAGE", "sales-pipeline:latest")
+
 
 # ---------------- Helper Functions ----------------
 def check_kafka_health(**context):
@@ -225,7 +223,7 @@ with DAG(
             "spark-submit",
             "--packages",
             "net.snowflake:snowflake-jdbc:3.14.3,net.snowflake:spark-snowflake_2.12:2.11.3",
-            "/app/spark/sales_batch_job.py",
+            "/app/src/spark/jobs/batch_etl.py",
             "--input-path",
             f"s3://{ENV_VARS['S3_BUCKET']}/batch-data/{{{{ ds }}}}",
             "--output-table",
@@ -361,18 +359,18 @@ with DAG(
         task_id="success_notification",
         http_conn_id="slack_webhook",
         message="""
-        ✅ Cloud Sales Pipeline Completed Successfully!
+        Cloud Sales Pipeline Completed Successfully!
 
-        📊 Processed Data:
+        Processed Data:
         - Streaming Records: {{ ti.xcom_pull(key='streaming_records', task_ids='data_freshness_check') }}
         - Batch Records: {{ ti.xcom_pull(key='batch_records', task_ids='data_freshness_check') }}
         - Total Records: {{ ti.xcom_pull(key='total_records', task_ids='data_freshness_check') }}
 
         🕒 Execution Date: {{ ds }}
-        ⏱️ Duration: {{ (ti.end_date - ti.start_date).total_seconds() }} seconds
+        Duration: {{ (ti.end_date - ti.start_date).total_seconds() }} seconds
 
         📈 Pipeline Status: All stages completed successfully
-        🔍 Data Quality: Monitored and validated
+        Data Quality: Monitored and validated
         📚 Documentation: Updated and available
         """,
         trigger_rule=TriggerRule.ALL_SUCCESS,
@@ -386,10 +384,10 @@ with DAG(
         ❌ Cloud Sales Pipeline Failed!
 
         🕒 Execution Date: {{ ds }}
-        ⚠️ Failed Task: {{ ti.task_id }}
+        Failed Task: {{ ti.task_id }}
         📝 Error Details: Check Airflow logs for more information
 
-        🚨 Action Required: Please investigate and resolve the issue
+        Action Required: Please investigate and resolve the issue
         """,
         trigger_rule=TriggerRule.ONE_FAILED,
     )
