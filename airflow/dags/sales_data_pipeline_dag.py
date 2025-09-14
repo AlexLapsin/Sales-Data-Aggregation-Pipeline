@@ -60,7 +60,7 @@ def deprecation_notice(**context):
 
 
 default_args = {
-    "owner": ["system"],
+    "owner": "system",
     "depends_on_past": False,
     "email_on_failure": True,
     "email_on_retry": False,
