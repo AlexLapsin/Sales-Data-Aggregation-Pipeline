@@ -12,7 +12,7 @@ services:
       timeout: 5s
       retries: 20
     volumes:
-      - ./orchestration/airflow/postgres:/var/lib/postgresql/data
+      - ./airflow/postgres:/var/lib/postgresql/data
 
   # Build your ETL image so DockerOperator can run it
   etl-pipeline:
@@ -115,11 +115,11 @@ services:
       HOST_DATA_DIR: ${HOST_DATA_DIR}
 
     volumes:
-      - ./orchestration/airflow/dags:/opt/airflow/dags
-      - ./orchestration/airflow/logs:/opt/airflow/logs
-      - ./orchestration/airflow/plugins:/opt/airflow/plugins
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
       # Required so DockerOperator can launch task containers via host Docker
-      - /var/run/docker.sock:/var/run/docker.sock
+      - //var/run/docker.sock:/var/run/docker.sock
 
     command:
       - bash
