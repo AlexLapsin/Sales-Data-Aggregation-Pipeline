@@ -53,7 +53,7 @@ data "aws_iam_policy_document" "kafka_connect_assume_role" {
 
     principals {
       type        = "Service"
-      identifiers = ["kafka-connect.amazonaws.com", "ec2.amazonaws.com"]
+      identifiers = ["ec2.amazonaws.com"]
     }
   }
 }
@@ -118,9 +118,17 @@ data "aws_iam_policy_document" "spark_assume_role" {
     principals {
       type = "AWS"
       identifiers = [
-        var.TRUSTED_PRINCIPAL_ARN,
-        "arn:aws:iam::*:role/databricks-*" # Allow Databricks service roles
+        var.TRUSTED_PRINCIPAL_ARN
       ]
+    }
+
+    # Add Databricks service principal if needed
+    dynamic "principals" {
+      for_each = var.TRUSTED_PRINCIPAL_ARN != "" ? [] : [1]
+      content {
+        type        = "Service"
+        identifiers = ["ec2.amazonaws.com"]
+      }
     }
   }
 }

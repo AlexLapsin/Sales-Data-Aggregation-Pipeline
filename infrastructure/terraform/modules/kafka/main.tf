@@ -24,9 +24,14 @@ resource "aws_msk_cluster" "sales_pipeline" {
 
   broker_node_group_info {
     instance_type   = var.BROKER_INSTANCE_TYPE
-    ebs_volume_size = 20
     client_subnets  = var.SUBNET_IDS
     security_groups = var.SECURITY_GROUP_IDS
+
+    storage_info {
+      ebs_storage_info {
+        volume_size = 20
+      }
+    }
   }
 
   configuration_info {
@@ -35,7 +40,7 @@ resource "aws_msk_cluster" "sales_pipeline" {
   }
 
   encryption_info {
-    encryption_at_rest_kms_key_id = aws_kms_key.msk.arn
+    encryption_at_rest_kms_key_arn = aws_kms_key.msk.arn
     encryption_in_transit {
       client_broker = "TLS"
       in_cluster    = true
