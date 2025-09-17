@@ -423,11 +423,14 @@ with DAG(
 
     calculate_table_stats >> [optimize_table_clustering, vacuum_tables]
 
-    [optimize_table_clustering, vacuum_tables] >> [
-        update_schema_documentation,
-        validate_schema_integrity,
-        warehouse_scaling_check,
-    ]
+    # Break this into separate statements to avoid syntax issues
+    optimize_table_clustering >> update_schema_documentation
+    optimize_table_clustering >> validate_schema_integrity
+    optimize_table_clustering >> warehouse_scaling_check
+
+    vacuum_tables >> update_schema_documentation
+    vacuum_tables >> validate_schema_integrity
+    vacuum_tables >> warehouse_scaling_check
 
     [
         cleanup_s3_old_data,
@@ -435,6 +438,7 @@ with DAG(
         cleanup_docker_resources,
     ] >> kafka_log_cleanup
 
+    # Final consolidation
     (
         [
             update_schema_documentation,
