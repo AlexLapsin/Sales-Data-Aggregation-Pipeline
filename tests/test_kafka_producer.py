@@ -31,7 +31,7 @@ import threading
 import statistics
 
 # Test frameworks and utilities
-from pytest_benchmark import BenchmarkFixture
+import pytest_benchmark
 from faker import Faker
 import jsonschema
 from memory_profiler import profile
@@ -45,8 +45,8 @@ from kafka.admin import NewTopic
 # Import the classes we're testing
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "streaming"))
-from kafka_producer import SalesDataGenerator, KafkaSalesProducer, load_config
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
+from streaming.producers import SalesDataGenerator, KafkaSalesProducer, load_config
 
 # Configure logging for tests
 logging.basicConfig(level=logging.INFO)
@@ -280,7 +280,7 @@ class TestSalesDataGenerator:
             ), f"Payment method {method} has unusual distribution: {ratio}"
 
     @pytest.mark.performance
-    def test_generation_performance(self, generator, benchmark: BenchmarkFixture):
+    def test_generation_performance(self, generator, benchmark):
         """Test data generation performance"""
         # Benchmark single event generation
         result = benchmark(generator.generate_sales_event)
@@ -310,7 +310,7 @@ class TestKafkaSalesProducerUnit:
     @pytest.fixture
     def mock_kafka_producer(self):
         """Fixture providing a mocked KafkaProducer"""
-        with patch("kafka_producer.KafkaProducer") as mock_producer_class:
+        with patch("streaming.producers.KafkaProducer") as mock_producer_class:
             mock_producer = Mock()
             mock_producer_class.return_value = mock_producer
             yield mock_producer
@@ -333,7 +333,7 @@ class TestKafkaSalesProducerUnit:
 
     def test_producer_configuration_parameters(self):
         """Test that KafkaProducer is configured with correct parameters"""
-        with patch("kafka_producer.KafkaProducer") as mock_producer_class:
+        with patch("streaming.producers.KafkaProducer") as mock_producer_class:
             KafkaSalesProducer("localhost:9092", "test_topic")
 
             # Verify producer was called with expected configuration
@@ -697,7 +697,7 @@ class TestErrorHandlingAndRetries:
             producer = KafkaSalesProducer("invalid_host:9092", "test_topic")
             producer.produce_sales_event()
 
-    @patch("kafka_producer.KafkaProducer")
+    @patch("streaming.producers.KafkaProducer")
     def test_retry_configuration(self, mock_producer_class):
         """Test that retry configuration is properly set"""
         KafkaSalesProducer("localhost:9092", "test_topic")
@@ -706,10 +706,10 @@ class TestErrorHandlingAndRetries:
         assert call_kwargs["retries"] == 3
         assert call_kwargs["retry_backoff_ms"] == 100
 
-    @patch("kafka_producer.logger")
+    @patch("streaming.producers.logger")
     def test_error_logging(self, mock_logger):
         """Test that errors are properly logged"""
-        with patch("kafka_producer.KafkaProducer") as mock_producer_class:
+        with patch("streaming.producers.KafkaProducer") as mock_producer_class:
             mock_producer = Mock()
             mock_producer_class.return_value = mock_producer
 
@@ -779,7 +779,7 @@ class TestConfigurationScenarios:
         # Typical MSK configuration
         msk_bootstrap_servers = "b-1.msk-cluster.kafka.us-west-2.amazonaws.com:9092,b-2.msk-cluster.kafka.us-west-2.amazonaws.com:9092"
 
-        with patch("kafka_producer.KafkaProducer") as mock_producer_class:
+        with patch("streaming.producers.KafkaProducer") as mock_producer_class:
             producer = KafkaSalesProducer(msk_bootstrap_servers, "sales_events")
 
             # Should split comma-separated servers
@@ -819,7 +819,7 @@ class TestPerformanceAndLoad:
 
         def produce_events(producer_id: int, results: dict):
             try:
-                with patch("kafka_producer.KafkaProducer") as mock_producer_class:
+                with patch("streaming.producers.KafkaProducer") as mock_producer_class:
                     mock_producer = Mock()
                     mock_producer_class.return_value = mock_producer
 
@@ -868,7 +868,7 @@ class TestPerformanceAndLoad:
     @pytest.mark.performance
     def test_batch_production_performance(self):
         """Test performance of batch event production"""
-        with patch("kafka_producer.KafkaProducer") as mock_producer_class:
+        with patch("streaming.producers.KafkaProducer") as mock_producer_class:
             mock_producer = Mock()
             mock_producer_class.return_value = mock_producer
 

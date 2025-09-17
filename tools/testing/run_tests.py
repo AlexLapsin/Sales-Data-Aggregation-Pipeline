@@ -34,25 +34,25 @@ class TestRunner:
         self.tests_dir = self.project_root / "tests"
         self.test_categories = {
             "config": {
-                "file": "unit/config/test_config_validation.py",
+                "file": "tests/test_config_validation.py",
                 "description": "Configuration and environment validation",
                 "prerequisites": ["env_file"],
                 "estimated_time": "3-5 minutes",
             },
             "docker": {
-                "file": "integration/infrastructure/test_docker_health.py",
+                "file": "tests/test_docker_health.py",
                 "description": "Docker container health and connectivity",
                 "prerequisites": ["docker_running", "containers_started"],
                 "estimated_time": "2-3 minutes",
             },
             "readiness": {
-                "file": "integration/infrastructure/test_service_readiness.py",
+                "file": "tests/test_service_readiness.py",
                 "description": "Service startup and readiness checks",
                 "prerequisites": ["docker_running", "containers_started"],
                 "estimated_time": "5-10 minutes",
             },
             "communication": {
-                "file": "integration/infrastructure/test_inter_service_communication.py",
+                "file": "tests/test_inter_service_communication.py",
                 "description": "Inter-service communication validation",
                 "prerequisites": [
                     "docker_running",

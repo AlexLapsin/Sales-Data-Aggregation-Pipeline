@@ -1,6 +1,11 @@
 import pandas as pd
 import pytest
-from etl.transform_funcs import (
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "legacy", "src"))
+
+from etl.transform import (
     parse_dates,
     clean_basic,
     cap_extremes,
