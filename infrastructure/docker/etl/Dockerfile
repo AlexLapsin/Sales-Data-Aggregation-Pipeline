@@ -18,6 +18,8 @@ RUN apt-get update \
       unixodbc-dev \
       curl \
       gnupg \
+      dos2unix \
+      jq \
  && rm -rf /var/lib/apt/lists/*
 
 # App root
@@ -32,6 +34,15 @@ COPY src/ /app/src
 
 # Copy legacy components (for backward compatibility)
 COPY legacy/ /app/legacy
+
+# Copy deployment scripts for streaming management
+COPY deploy/ /app/deploy
+
+# Fix line endings for shell scripts (Windows to Unix)
+RUN find /app/deploy -name "*.sh" -type f -exec dos2unix {} \;
+
+# Copy dbt project for data transformations
+COPY dbt/ /app/dbt
 
 # Work under app root for proper Python path resolution
 WORKDIR /app

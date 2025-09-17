@@ -55,7 +55,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-# --- map .env -> TF_VAR_* (adjust names if your variables.tf differs) ------
+# --- map .env -> TF_VAR_* (adjust names to match variables.tf exactly) ------
 export TF_VAR_AWS_REGION="${AWS_DEFAULT_REGION:-}"
 export TF_VAR_RAW_BUCKET="${S3_BUCKET:-}"
 
@@ -64,13 +64,21 @@ if [[ -n "${PROCESSED_BUCKET:-}" ]]; then
   export TF_VAR_PROCESSED_BUCKET="${PROCESSED_BUCKET}"
 fi
 
-export TF_VAR_DB_NAME="${RDS_DB:-}"
-export TF_VAR_DB_USERNAME="${RDS_USER:-}"
-export TF_VAR_DB_PASSWORD="${RDS_PASS:-}"
+# RDS variables (optional - only exported if RDS is enabled)
+[[ -n "${ENABLE_RDS:-}" ]]         && export TF_VAR_ENABLE_RDS="${ENABLE_RDS}"
+[[ -n "${RDS_DB:-}" ]]             && export TF_VAR_DB_NAME="${RDS_DB}"
+[[ -n "${RDS_USER:-}" ]]           && export TF_VAR_DB_USERNAME="${RDS_USER}"
+[[ -n "${RDS_PASS:-}" ]]           && export TF_VAR_DB_PASSWORD="${RDS_PASS}"
+[[ -n "${DB_INSTANCE_CLASS:-}" ]]  && export TF_VAR_DB_INSTANCE_CLASS="${DB_INSTANCE_CLASS}"
+[[ -n "${DB_ALLOCATED_STORAGE:-}" ]] && export TF_VAR_DB_ALLOCATED_STORAGE="${DB_ALLOCATED_STORAGE}"
+[[ -n "${DB_ENGINE_VERSION:-}" ]]    && export TF_VAR_DB_ENGINE_VERSION="${DB_ENGINE_VERSION}"
+[[ -n "${DB_BACKUP_RETENTION_DAYS:-}" ]] && export TF_VAR_DB_BACKUP_RETENTION_DAYS="${DB_BACKUP_RETENTION_DAYS}"
+[[ -n "${PUBLICLY_ACCESSIBLE:-}" ]]      && export TF_VAR_PUBLICLY_ACCESSIBLE="${PUBLICLY_ACCESSIBLE}"
+
 export TF_VAR_ALLOWED_CIDR="${ALLOWED_CIDR:-}"
 
-# NEW: trusted principal for IAM trust policy
-export TF_VAR_TRUSTED_PRINCIPAL_ARN="${TRUSTED_PRINCIPAL_ARN:-}"
+# IAM trust policy principal (optional)
+[[ -n "${TRUSTED_PRINCIPAL_ARN:-}" ]] && export TF_VAR_TRUSTED_PRINCIPAL_ARN="${TRUSTED_PRINCIPAL_ARN}"
 
 # Optional tunables (export only if present in .env & variables.tf expects them)
 [[ -n "${PROJECT_NAME:-}" ]]              && export TF_VAR_PROJECT_NAME="${PROJECT_NAME}"
@@ -87,13 +95,13 @@ export TF_VAR_TRUSTED_PRINCIPAL_ARN="${TRUSTED_PRINCIPAL_ARN:-}"
 [[ -n "${BROKER_INSTANCE_TYPE:-}" ]]       && export TF_VAR_BROKER_INSTANCE_TYPE="${BROKER_INSTANCE_TYPE}"
 [[ -n "${NUMBER_OF_BROKERS:-}" ]]          && export TF_VAR_NUMBER_OF_BROKERS="${NUMBER_OF_BROKERS}"
 
-# Snowflake variables
-[[ -n "${ENABLE_SNOWFLAKE_OBJECTS:-}" ]]   && export TF_VAR_ENABLE_SNOWFLAKE_OBJECTS="${ENABLE_SNOWFLAKE_OBJECTS}"
-[[ -n "${SNOWFLAKE_ACCOUNT:-}" ]]          && export TF_VAR_SNOWFLAKE_ACCOUNT="${SNOWFLAKE_ACCOUNT}"
-[[ -n "${SNOWFLAKE_USER:-}" ]]             && export TF_VAR_SNOWFLAKE_USER="${SNOWFLAKE_USER}"
-[[ -n "${SNOWFLAKE_PASSWORD:-}" ]]         && export TF_VAR_SNOWFLAKE_PASSWORD="${SNOWFLAKE_PASSWORD}"
-[[ -n "${SNOWFLAKE_ROLE:-}" ]]             && export TF_VAR_SNOWFLAKE_ROLE="${SNOWFLAKE_ROLE}"
-[[ -n "${SNOWFLAKE_REGION:-}" ]]           && export TF_VAR_SNOWFLAKE_REGION="${SNOWFLAKE_REGION}"
+# Snowflake variables (using OAUTH token authentication)
+[[ -n "${ENABLE_SNOWFLAKE_OBJECTS:-}" ]]     && export TF_VAR_ENABLE_SNOWFLAKE_OBJECTS="${ENABLE_SNOWFLAKE_OBJECTS}"
+[[ -n "${SNOWFLAKE_ACCOUNT_NAME:-}" ]]       && export TF_VAR_SNOWFLAKE_ACCOUNT_NAME="${SNOWFLAKE_ACCOUNT_NAME}"
+[[ -n "${SNOWFLAKE_ORGANIZATION_NAME:-}" ]]  && export TF_VAR_SNOWFLAKE_ORGANIZATION_NAME="${SNOWFLAKE_ORGANIZATION_NAME}"
+[[ -n "${SNOWFLAKE_USER:-}" ]]               && export TF_VAR_SNOWFLAKE_USER="${SNOWFLAKE_USER}"
+[[ -n "${SNOWFLAKE_PASSWORD:-}" ]]           && export TF_VAR_SNOWFLAKE_PASSWORD="${SNOWFLAKE_PASSWORD}"
+[[ -n "${SNOWFLAKE_ROLE:-}" ]]               && export TF_VAR_SNOWFLAKE_ROLE="${SNOWFLAKE_ROLE}"
 
 # --- protect AWS credential chain -----------------------------------------
 # If you prefer using an AWS profile for Terraform, keep it working:
@@ -106,11 +114,15 @@ fi
 [[ -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && unset AWS_SECRET_ACCESS_KEY
 [[ -z "${AWS_SESSION_TOKEN:-}" ]]     && unset AWS_SESSION_TOKEN
 
-# --- sanity checks (don’t echo secrets) ------------------------------------
-_req=(AWS_DEFAULT_REGION S3_BUCKET RDS_DB RDS_USER RDS_PASS ALLOWED_CIDR)
+# --- sanity checks (don't echo secrets) ------------------------------------
+# Required variables for basic AWS infrastructure
+_req=(AWS_DEFAULT_REGION S3_BUCKET ALLOWED_CIDR)
 for v in "${_req[@]}"; do
   [[ -n "${!v:-}" ]] || _die "$v missing in $ENV_FILE"
 done
+
+# Optional checks - warn but don't fail
+[[ -z "${RDS_DB:-}" ]] && echo "WARNING: RDS_DB not set - RDS module will be skipped"
 
 echo "TF_VAR_* exported from: $ENV_FILE"
 echo "Next:  cd infra && terraform plan"
