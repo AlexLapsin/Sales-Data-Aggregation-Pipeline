@@ -50,34 +50,3 @@ sales_data_pipeline:
       keepalives_idle: 30
       search_path: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}.{{ env_var('SNOWFLAKE_SCHEMA', 'RAW') }}"
       query_tag: "dbt-production"
-
-# Alternative: Using username/password with direct values (less secure)
-# sales_data_pipeline_direct:
-#   target: dev
-#   outputs:
-#     dev:
-#       type: snowflake
-#       account: your_account.region.cloud
-#       user: your_username
-#       password: your_password
-#       role: SYSADMIN
-#       database: SALES_DW
-#       warehouse: COMPUTE_WH
-#       schema: dev_your_name
-#       threads: 4
-
-# Alternative: Using private key authentication (most secure)
-# sales_data_pipeline_key_auth:
-#   target: prod
-#   outputs:
-#     prod:
-#       type: snowflake
-#       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-#       user: "{{ env_var('SNOWFLAKE_USER') }}"
-#       private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
-#       private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
-#       role: "{{ env_var('SNOWFLAKE_ROLE', 'SYSADMIN') }}"
-#       database: "{{ env_var('SNOWFLAKE_DATABASE', 'SALES_DW') }}"
-#       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
-#       schema: marts
-#       threads: 8
