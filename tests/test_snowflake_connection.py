@@ -2,7 +2,7 @@
 """
 Comprehensive Snowflake Connection Tests
 
-This module provides comprehensive testing for Snowflake connectivity using key-pair authentication.
+This module provides comprehensive testing for Snowflake connectivity using password authentication.
 Tests cover connection establishment, authentication verification, database operations,
 and connection resilience.
 
@@ -13,7 +13,7 @@ Usage:
 Environment Variables Required:
     SNOWFLAKE_ACCOUNT: Snowflake account identifier
     SNOWFLAKE_USER: Snowflake username
-    SNOWFLAKE_PRIVATE_KEY_PATH: Path to private key file
+    SNOWFLAKE_PASSWORD: Snowflake user password
     SNOWFLAKE_ROLE: Snowflake role (optional, defaults to ACCOUNTADMIN)
     SNOWFLAKE_WAREHOUSE: Snowflake warehouse (optional, defaults to COMPUTE_WH)
     SNOWFLAKE_DATABASE: Snowflake database (optional, defaults to SALES_DW)
@@ -44,9 +44,6 @@ try:
         InterfaceError,
         OperationalError,
     )
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.serialization import load_pem_private_key
-    from cryptography.hazmat.backends import default_backend
 
     SNOWFLAKE_AVAILABLE = True
 except ImportError as e:
@@ -89,9 +86,7 @@ class SnowflakeConnectionTester:
         config = {
             "account": os.getenv("SNOWFLAKE_ACCOUNT"),
             "user": os.getenv("SNOWFLAKE_USER"),
-            "private_key_path": os.getenv(
-                "SNOWFLAKE_PRIVATE_KEY_PATH", "./config/keys/snowflake_private_key.pem"
-            ),
+            "password": os.getenv("SNOWFLAKE_PASSWORD"),
             "role": os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
             "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE", "COMPUTE_WH"),
             "database": os.getenv("SNOWFLAKE_DATABASE", "SALES_DW"),
@@ -100,7 +95,7 @@ class SnowflakeConnectionTester:
         }
 
         # Validate required fields
-        required_fields = ["account", "user", "private_key_path"]
+        required_fields = ["account", "user", "password"]
         missing_fields = [field for field in required_fields if not config[field]]
 
         if missing_fields:
@@ -110,47 +105,20 @@ class SnowflakeConnectionTester:
 
         return config
 
-    def _load_private_key(self) -> bytes:
-        """Load and parse the private key for authentication"""
-        key_path = Path(self.config["private_key_path"])
-
-        if not key_path.exists():
-            raise FileNotFoundError(f"Private key file not found: {key_path}")
-
-        if not key_path.is_file():
-            raise ValueError(f"Private key path is not a file: {key_path}")
-
-        try:
-            with open(key_path, "rb") as key_file:
-                private_key = load_pem_private_key(
-                    key_file.read(),
-                    password=None,  # Assuming no passphrase
-                    backend=default_backend(),
-                )
-
-            # Convert to DER format for Snowflake
-            private_key_der = private_key.private_bytes(
-                encoding=serialization.Encoding.DER,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
-
-            return private_key_der
-
-        except Exception as e:
-            raise ValueError(f"Failed to load private key: {str(e)}")
+    def _validate_password(self) -> bool:
+        """Validate the Snowflake password"""
+        password = self.config.get("password")
+        return bool(password and len(password) > 0 and not password.startswith("your_"))
 
     @contextmanager
     def get_connection(self):
         """Context manager for Snowflake connections"""
         connection = None
         try:
-            private_key_der = self._load_private_key()
-
             connection = snowflake.connector.connect(
                 user=self.config["user"],
                 account=self.config["account"],
-                private_key=private_key_der,
+                password=self.config["password"],
                 role=self.config["role"],
                 warehouse=self.config["warehouse"],
                 database=self.config["database"],
@@ -182,7 +150,7 @@ class SnowflakeConnectionTester:
             # Test configuration completeness
             config_checks = {
                 "account_format": self._validate_account_format(),
-                "private_key_file": self._validate_private_key_file(),
+                "password_validation": self._validate_password(),
                 "user_format": self._validate_user_format(),
                 "optional_params": self._validate_optional_params(),
             }
@@ -213,14 +181,6 @@ class SnowflakeConnectionTester:
         # Snowflake account format: ORGNAME-ACCOUNT_NAME or legacy formats
         return bool(account and len(account) > 0 and not account.startswith("YOUR_"))
 
-    def _validate_private_key_file(self) -> bool:
-        """Validate private key file accessibility"""
-        try:
-            self._load_private_key()
-            return True
-        except Exception:
-            return False
-
     def _validate_user_format(self) -> bool:
         """Validate Snowflake user format"""
         user = self.config["user"]
@@ -232,7 +192,7 @@ class SnowflakeConnectionTester:
         return all(self.config.get(param) for param in optional_params)
 
     def test_authentication(self) -> Dict[str, Any]:
-        """Test Snowflake authentication with key-pair"""
+        """Test Snowflake authentication with password"""
         logger.info("Testing Snowflake authentication...")
 
         result = {
@@ -262,7 +222,7 @@ class SnowflakeConnectionTester:
                     "current_role": user_info[1] if user_info else None,
                     "current_warehouse": user_info[2] if user_info else None,
                     "connection_established": True,
-                    "authentication_method": "key_pair",
+                    "authentication_method": "password",
                 }
 
                 # Verify user matches configuration
@@ -601,7 +561,7 @@ class SnowflakeConnectionTester:
             security_checks = {
                 "ssl_connection": self._test_ssl_connection(),
                 "role_privileges": self._test_role_privileges(),
-                "key_pair_auth": self._test_key_pair_authentication(),
+                "password_auth": self._test_password_authentication(),
             }
 
             result["details"] = security_checks
@@ -633,13 +593,13 @@ class SnowflakeConnectionTester:
         except Exception:
             return False
 
-    def _test_key_pair_authentication(self) -> bool:
-        """Test key-pair authentication specifically"""
+    def _test_password_authentication(self) -> bool:
+        """Test password authentication specifically"""
         try:
-            # If we can establish connection, key-pair auth is working
+            # If we can establish connection, password auth is working
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT 'key_pair_auth_success'")
+                cursor.execute("SELECT 'password_auth_success'")
                 result = cursor.fetchone()
                 return bool(result)
         except Exception:

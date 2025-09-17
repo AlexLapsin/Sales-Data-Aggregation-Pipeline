@@ -1,0 +1,7 @@
+# Terraform Backend Configuration
+# Copy this to backend.hcl and customize for your setup
+# backend.hcl is gitignored for security
+
+bucket = "name of your state bucket"
+key    = "your key"
+region = "your region"
