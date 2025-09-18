@@ -45,15 +45,21 @@ class SalesETLJob:
         self.spark = spark
         self.logger = logging.getLogger(__name__)
 
-        # Snowflake connection properties
+        # Snowflake connection properties using Databricks secrets
         self.snowflake_options = {
-            "sfUrl": os.getenv("SNOWFLAKE_ACCOUNT"),
-            "sfUser": os.getenv("SNOWFLAKE_USER"),
-            "sfPassword": os.getenv("SNOWFLAKE_PASSWORD"),
-            "sfDatabase": os.getenv("SNOWFLAKE_DATABASE", "SALES_DW"),
-            "sfSchema": os.getenv("SNOWFLAKE_SCHEMA", "RAW"),
-            "sfWarehouse": os.getenv("SNOWFLAKE_WAREHOUSE", "ETL_WH"),
-            "sfRole": os.getenv("SNOWFLAKE_ROLE", "SYSADMIN"),
+            "sfUrl": dbutils.secrets.get("snowflake-secrets", "snowflake-account"),
+            "sfUser": dbutils.secrets.get("snowflake-secrets", "snowflake-user"),
+            "sfPassword": dbutils.secrets.get(
+                "snowflake-secrets", "snowflake-password"
+            ),
+            "sfDatabase": dbutils.secrets.get(
+                "snowflake-secrets", "snowflake-database"
+            ),
+            "sfSchema": dbutils.secrets.get("snowflake-secrets", "snowflake-schema"),
+            "sfWarehouse": dbutils.secrets.get(
+                "snowflake-secrets", "snowflake-warehouse"
+            ),
+            "sfRole": dbutils.secrets.get("snowflake-secrets", "snowflake-role"),
         }
 
         # Validate required Snowflake config
