@@ -20,7 +20,7 @@ echo "Loading environment variables from .env..."
 source .env
 
 # Verify required variables are set
-required_vars=("DATABRICKS_HOST" "DATABRICKS_TOKEN" "SNOWFLAKE_ACCOUNT_NAME" "SNOWFLAKE_ORGANIZATION_NAME" "SNOWFLAKE_USER" "SNOWFLAKE_PASSWORD" "SNOWFLAKE_WAREHOUSE" "SNOWFLAKE_DATABASE" "SNOWFLAKE_SCHEMA" "SNOWFLAKE_ROLE")
+required_vars=("DATABRICKS_HOST" "DATABRICKS_TOKEN" "SNOWFLAKE_ACCOUNT_NAME" "SNOWFLAKE_ORGANIZATION_NAME" "SNOWFLAKE_USER" "SNOWFLAKE_PASSWORD" "SNOWFLAKE_WAREHOUSE" "SNOWFLAKE_DATABASE" "SNOWFLAKE_SCHEMA" "SNOWFLAKE_ROLE" "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY")
 
 for var in "${required_vars[@]}"; do
     if [ -z "${!var}" ]; then
@@ -75,6 +75,12 @@ echo "$SNOWFLAKE_SCHEMA" | databricks secrets put-secret snowflake-secrets snowf
 
 echo "Creating snowflake-role..."
 echo "$SNOWFLAKE_ROLE" | databricks secrets put-secret snowflake-secrets snowflake-role
+
+echo "Creating aws-access-key-id..."
+echo "$AWS_ACCESS_KEY_ID" | databricks secrets put-secret snowflake-secrets aws-access-key-id
+
+echo "Creating aws-secret-access-key..."
+echo "$AWS_SECRET_ACCESS_KEY" | databricks secrets put-secret snowflake-secrets aws-secret-access-key
 
 echo ""
 

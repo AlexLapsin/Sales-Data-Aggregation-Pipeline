@@ -315,12 +315,19 @@ class SalesETLJob:
 
 
 def create_spark_session(app_name: str = "SalesETL") -> SparkSession:
-    """Create and configure Spark session with required packages"""
+    """Create and configure Spark session with required packages and AWS credentials"""
+    # Get AWS credentials from Databricks secrets
+    aws_access_key = dbutils.secrets.get("snowflake-secrets", "aws-access-key-id")
+    aws_secret_key = dbutils.secrets.get("snowflake-secrets", "aws-secret-access-key")
+
     return (
         SparkSession.builder.appName(app_name)
         .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
         .config("spark.sql.adaptive.skewJoin.enabled", "true")
+        .config("spark.hadoop.fs.s3a.access.key", aws_access_key)
+        .config("spark.hadoop.fs.s3a.secret.key", aws_secret_key)
+        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         .config(
             "spark.jars.packages",
             "net.snowflake:snowflake-jdbc:3.14.3,"
