@@ -1,4 +1,4 @@
-FROM apache/airflow:2.6.1
+FROM apache/airflow:2.10.0
 
 # Switch to root if you need OS libraries here
 USER root
@@ -13,6 +13,6 @@ USER airflow
 RUN pip install --no-cache-dir \
     apache-airflow-providers-docker \
     apache-airflow-providers-snowflake \
-    apache-airflow-providers-databricks \
+    apache-airflow-providers-databricks==7.7.1 \
     apache-airflow-providers-slack \
     docker

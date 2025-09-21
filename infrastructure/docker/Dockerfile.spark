@@ -9,14 +9,15 @@ USER root
 RUN pip install --upgrade pip
 
 # Copy requirements
-COPY spark/requirements.txt /app/requirements.txt
+COPY requirements-spark.txt /app/requirements.txt
 RUN pip install -r /app/requirements.txt
 
-# Copy Spark application
-COPY spark/ /app/spark/
+# Copy source code
+COPY src/ /app/src/
 
-# Create directories
-RUN mkdir -p /app/data /app/logs
+# Create directories including Ivy cache
+RUN mkdir -p /app/data /app/logs /tmp/.ivy2 && \
+    chown -R 1001:1001 /tmp/.ivy2
 
 # Set permissions
 RUN chown -R 1001:1001 /app
@@ -24,7 +25,7 @@ RUN chown -R 1001:1001 /app
 USER 1001
 
 # Set working directory
-WORKDIR /app/spark
+WORKDIR /app
 
 # Default command
 CMD ["bash"]

@@ -14,7 +14,7 @@ services:
     volumes:
       - ./airflow/postgres:/var/lib/postgresql/data
 
-  # Build your ETL image so DockerOperator can run it
+  # ETL image for DockerOperator tasks
   etl-pipeline:
     build:
       context: .
@@ -24,7 +24,19 @@ services:
     env_file:
     - .env
 
-  # Zookeeper for Kafka (local development)
+  # Spark service for local Spark execution
+  spark-local:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.spark
+    image: spark-pipeline:latest
+    command: sleep infinity
+    env_file:
+    - .env
+    volumes:
+      - ivy-cache:/tmp/.ivy2
+
+  # Zookeeper for Kafka
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     hostname: zookeeper
@@ -34,10 +46,8 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    profiles:
-      - kafka-local
 
-  # Kafka broker (local development)
+  # Kafka broker
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     hostname: kafka
@@ -58,15 +68,13 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_DEFAULT_REPLICATION_FACTOR: 1
-    profiles:
-      - kafka-local
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
       interval: 30s
       timeout: 10s
       retries: 5
 
-  # Kafka UI (optional - for monitoring)
+  # Kafka UI
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -80,10 +88,8 @@ services:
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
-    profiles:
-      - kafka-local
 
-  # Kafka Connect with Snowflake connector
+  # Kafka Connect
   kafka-connect:
     image: confluentinc/cp-kafka-connect:7.4.0
     hostname: kafka-connect
@@ -126,15 +132,13 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-    profiles:
-      - kafka-local
 
-  # Airflow (scheduler + webserver in one container for local dev)
+  # Airflow
   airflow:
     build:
       context: .
       dockerfile: infrastructure/docker/airflow/Dockerfile-airflow
-    image: custom-airflow:2.6.1
+    image: custom-airflow:2.10.0
     depends_on:
       postgres:
         condition: service_healthy
@@ -157,7 +161,7 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-admin}
       _AIRFLOW_WWW_USER_EMAIL: ${_AIRFLOW_WWW_USER_EMAIL:-admin@example.com}
 
-      # 👇 Used by the DAG
+      # Used by the DAG
       PIPELINE_IMAGE: ${PIPELINE_IMAGE:-sales-pipeline:latest}
       # Absolute host path to your repo's data folder (must contain ./raw/*.csv)
       HOST_DATA_DIR: ${HOST_DATA_DIR}
@@ -166,13 +170,15 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
-      # Required so DockerOperator can launch task containers via host Docker
+      - ./airflow/scripts:/opt/airflow/scripts
+      # Docker socket for DockerOperator
       - //var/run/docker.sock:/var/run/docker.sock
 
     command:
       - bash
       - -lc
       - |
+        echo "Starting Sales Data Pipeline - Airflow Setup"
         airflow db upgrade && \
         airflow users create \
           --role Admin \
@@ -181,8 +187,15 @@ services:
           --firstname Admin \
           --lastname User \
           --email "$${_AIRFLOW_WWW_USER_EMAIL}" || true
+        echo "Initializing pipeline variables..."
+        python /opt/airflow/scripts/init_variables.py
+        echo "Airflow setup complete! Starting services..."
         airflow scheduler &
         exec airflow webserver --port 8080
+
+volumes:
+  ivy-cache:
+    driver: local
 
 networks:
   default:
