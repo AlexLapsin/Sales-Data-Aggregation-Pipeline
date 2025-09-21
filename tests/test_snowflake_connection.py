@@ -83,8 +83,18 @@ class SnowflakeConnectionTester:
 
     def _load_config(self) -> Dict[str, Any]:
         """Load and validate Snowflake configuration"""
+        # Use our current .env format with account name and organization
+        account_name = os.getenv("SNOWFLAKE_ACCOUNT_NAME")
+        org_name = os.getenv("SNOWFLAKE_ORGANIZATION_NAME")
+
+        # Construct account in correct format: organization-account
+        if account_name and org_name:
+            account = f"{org_name}-{account_name}"
+        else:
+            account = os.getenv("SNOWFLAKE_ACCOUNT")  # fallback
+
         config = {
-            "account": os.getenv("SNOWFLAKE_ACCOUNT"),
+            "account": account,
             "user": os.getenv("SNOWFLAKE_USER"),
             "password": os.getenv("SNOWFLAKE_PASSWORD"),
             "role": os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
@@ -682,7 +692,7 @@ class SnowflakeConnectionTester:
         print("=" * 80)
 
         if results.get("error"):
-            print(f"❌ Test Suite Error: {results['error']}")
+            print(f"Test Suite Error: {results['error']}")
             return
 
         print(f"Overall Status: {results['status'].upper()}")
@@ -691,10 +701,10 @@ class SnowflakeConnectionTester:
             summary = results["summary"]
             print(f"\nTest Summary:")
             print(f"  Total Tests: {summary['total_tests']}")
-            print(f"  ✅ Passed: {summary['passed']}")
-            print(f"  ⚠️  Partial: {summary['partial']}")
-            print(f"  ❌ Failed: {summary['failed']}")
-            print(f"  🔥 Errors: {summary['errors']}")
+            print(f"  Passed: {summary['passed']}")
+            print(f"  Partial: {summary['partial']}")
+            print(f"  Failed: {summary['failed']}")
+            print(f"  Errors: {summary['errors']}")
 
         for test_name, test_result in results.get("tests", {}).items():
             print(f"\n{test_name.replace('_', ' ').title()}:")
@@ -702,11 +712,11 @@ class SnowflakeConnectionTester:
 
             status = test_result.get("status", "unknown")
             status_icon = {
-                "success": "✅",
-                "partial": "⚠️",
-                "failed": "❌",
-                "error": "🔥",
-            }.get(status, "❓")
+                "success": "PASS",
+                "partial": "WARN",
+                "failed": "FAIL",
+                "error": "ERROR",
+            }.get(status, "UNKNOWN")
 
             print(f"Status: {status_icon} {status.upper()}")
 
@@ -803,18 +813,18 @@ def main():
         with open(results_file, "w") as f:
             json.dump(results, f, indent=2, default=str)
 
-        print(f"\n📄 Detailed results saved to: {results_file}")
+        print(f"\nDetailed results saved to: {results_file}")
 
         # Exit with appropriate code
         if results["status"] in ["success", "partial"]:
-            print("\n✅ Snowflake connection tests completed successfully!")
+            print("\nSnowflake connection tests completed successfully!")
             sys.exit(0)
         else:
-            print("\n❌ Snowflake connection tests failed!")
+            print("\nSnowflake connection tests failed!")
             sys.exit(1)
 
     except Exception as e:
-        print(f"\n🔥 Fatal error running Snowflake tests: {str(e)}")
+        print(f"\nFatal error running Snowflake tests: {str(e)}")
         sys.exit(1)
 
 
