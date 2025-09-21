@@ -18,6 +18,7 @@ from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.providers.slack.operators.slack_webhook import SlackWebhookOperator
 from airflow.utils.trigger_rule import TriggerRule
+from airflow.models import Variable
 from docker.types import Mount
 
 # ---------------- Configuration ----------------
@@ -54,6 +55,8 @@ ENV_VARS = {
     "DATABRICKS_HOST": os.getenv("DATABRICKS_HOST"),
     "DATABRICKS_TOKEN": os.getenv("DATABRICKS_TOKEN"),
     "DATABRICKS_CLUSTER_ID": os.getenv("DATABRICKS_CLUSTER_ID"),
+    "DATABRICKS_USERNAME": os.getenv("DATABRICKS_USERNAME"),
+    "DATABRICKS_SALES_ETL_JOB_ID": os.getenv("DATABRICKS_SALES_ETL_JOB_ID"),
     # Kafka Configuration
     "KAFKA_BOOTSTRAP_SERVERS": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
     "KAFKA_TOPIC": os.getenv("KAFKA_TOPIC", "sales_events"),
@@ -64,6 +67,44 @@ PIPELINE_IMAGE = os.getenv("PIPELINE_IMAGE", "sales-pipeline:latest")
 
 
 # ---------------- Helper Functions ----------------
+def choose_spark_execution_path(**context):
+    """
+    Choose between Databricks and local Spark execution.
+    Priority: Databricks > Local Spark
+    """
+    try:
+        # Check if Databricks credentials are configured in .env
+        databricks_host = os.getenv("DATABRICKS_HOST")
+        databricks_token = os.getenv("DATABRICKS_TOKEN")
+
+        # Debug output
+        print(f"DEBUG: DATABRICKS_HOST = '{databricks_host}'")
+        print(f"DEBUG: DATABRICKS_TOKEN = '{databricks_token}'")
+        print(f"DEBUG: Host is truthy: {bool(databricks_host)}")
+        print(f"DEBUG: Token is truthy: {bool(databricks_token)}")
+
+        # TEMPORARY: Force local execution for testing
+        print("FORCE LOCAL: Overriding Databricks detection for testing")
+        print("Using local Spark processing")
+        return "spark_batch_processing_local"
+
+        # Original logic (commented out for testing):
+        # if databricks_host and databricks_token:
+        #     print(f"Databricks credentials configured: {databricks_host}")
+        #     print("Using Databricks for Spark processing")
+        #     return "spark_batch_processing"
+        # else:
+        #     print("Databricks credentials not configured in .env")
+        #     print("Using local Spark processing")
+        #     print("To use Databricks: Set DATABRICKS_HOST and DATABRICKS_TOKEN in .env")
+        #     return "spark_batch_processing_local"
+
+    except Exception as e:
+        print(f"Error checking Databricks configuration: {e}")
+        print("Using local Spark processing")
+        return "spark_batch_processing_local"
+
+
 def check_kafka_health(**context):
     """Check if Kafka streaming is healthy and producing data"""
     import subprocess
@@ -204,40 +245,87 @@ with DAG(
     )
 
     # ---------------- Spark Batch Processing ----------------
+    # Route between Databricks and local Spark execution
+    spark_execution_branch = BranchPythonOperator(
+        task_id="spark_execution_branch",
+        python_callable=choose_spark_execution_path,
+        trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS,
+        doc_md="Choose between Databricks and local Spark execution",
+    )
+
+    # Databricks execution
     spark_batch_processing = DatabricksRunNowOperator(
         task_id="spark_batch_processing",
         databricks_conn_id="databricks_default",
-        job_id="{{ var.value.databricks_sales_etl_job_id }}",  # Set this variable in Airflow
-        notebook_params={
-            "input_path": f"s3://{ENV_VARS['S3_BUCKET']}/batch-data/{{{{ ds }}}}",
-            "output_table": "SALES_BATCH_RAW",
-            "batch_date": "{{ ds }}",
-        },
-        trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS,
-        doc_md="Runs Spark ETL job on Databricks to process batch CSV files",
-    )
-
-    # Alternative: Run Spark job via Docker if Databricks is not available
-    spark_batch_processing_docker = DockerOperator(
-        task_id="spark_batch_processing_docker",
-        image=PIPELINE_IMAGE,
-        command=[
-            "spark-submit",
-            "--packages",
-            "net.snowflake:snowflake-jdbc:3.14.3,net.snowflake:spark-snowflake_2.12:2.11.3",
-            "/app/src/spark/jobs/batch_etl.py",
+        job_id=ENV_VARS["DATABRICKS_SALES_ETL_JOB_ID"],
+        python_params=[
             "--input-path",
-            f"s3://{ENV_VARS['S3_BUCKET']}/batch-data/{{{{ ds }}}}",
+            f"s3://{ENV_VARS['S3_BUCKET']}/",
             "--output-table",
             "SALES_BATCH_RAW",
+            "--batch-id",
+            "{{ ds }}",
         ],
-        auto_remove=True,
-        environment=ENV_VARS,
-        mount_tmp_dir=False,
-        docker_url="unix://var/run/docker.sock",
-        network_mode="host",
-        trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS,
-        doc_md="Alternative Spark processing via Docker container",
+        doc_md="Execute Databricks ETL job using Git-integrated workspace",
+    )
+
+    # Local Spark execution
+    def run_local_spark_job(**context):
+        """Execute Spark job locally using the ETL container"""
+        import subprocess
+        import os
+
+        batch_id = context["ds"]
+        input_path = f"s3://{ENV_VARS['S3_BUCKET']}/"
+        output_table = "SALES_BATCH_RAW"
+
+        print(f"Starting local Spark job with batch_id: {batch_id}")
+        print(f"Input path: {input_path}")
+        print(f"Output table: {output_table}")
+
+        # Command to run the Spark job in the Spark container
+        cmd = [
+            "docker",
+            "exec",
+            "sales_data_aggregation_pipeline-spark-local-1",
+            "python",
+            "/app/src/spark/jobs/batch_etl.py",
+            "--input-path",
+            input_path,
+            "--output-table",
+            output_table,
+            "--batch-id",
+            batch_id,
+        ]
+
+        print(f"Executing command: {' '.join(cmd)}")
+
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=1800  # 30 minutes timeout
+        )
+
+        if result.returncode == 0:
+            print("Spark job completed successfully!")
+            print("STDOUT:", result.stdout)
+        else:
+            print(f"Spark job failed with return code: {result.returncode}")
+            print("STDOUT:", result.stdout)
+            print("STDERR:", result.stderr)
+            raise RuntimeError(f"Local Spark job failed: {result.stderr}")
+
+    spark_batch_processing_local = PythonOperator(
+        task_id="spark_batch_processing_local",
+        python_callable=run_local_spark_job,
+        retries=2,  # Retry twice on failure
+        retry_delay=timedelta(minutes=1),
+        doc_md="Execute Spark job locally using ETL container",
+    )
+
+    # Join point after Spark processing
+    spark_processing_complete = DummyOperator(
+        task_id="spark_processing_complete",
+        trigger_rule=TriggerRule.NONE_FAILED_OR_SKIPPED,
+        doc_md="Mark completion of Spark batch processing",
     )
 
     # ---------------- Data Quality Checks ----------------
@@ -366,7 +454,7 @@ with DAG(
     # ---------------- Success Notification ----------------
     success_notification = SlackWebhookOperator(
         task_id="success_notification",
-        http_conn_id="slack_webhook",
+        slack_webhook_conn_id="slack_webhook",
         message="""
         Cloud Sales Pipeline Completed Successfully!
 
@@ -388,7 +476,7 @@ with DAG(
     # ---------------- Failure Handling ----------------
     failure_notification = SlackWebhookOperator(
         task_id="failure_notification",
-        http_conn_id="slack_webhook",
+        slack_webhook_conn_id="slack_webhook",
         message="""
         ❌ Cloud Sales Pipeline Failed!
 
@@ -412,13 +500,13 @@ with DAG(
 
     # Pipeline start and health checks
     start_pipeline >> kafka_health_check
-    kafka_health_check >> [kafka_restart, spark_batch_processing]
-    kafka_restart >> spark_batch_processing
+    kafka_health_check >> [kafka_restart, spark_execution_branch]
+    kafka_restart >> spark_execution_branch
 
-    # Alternative Spark processing paths
-    spark_batch_processing >> data_freshness_check
-    # Uncomment to use Docker Spark instead of Databricks:
-    # kafka_health_check >> spark_batch_processing_docker >> data_freshness_check
+    # Spark processing paths
+    spark_execution_branch >> [spark_batch_processing, spark_batch_processing_local]
+    [spark_batch_processing, spark_batch_processing_local] >> spark_processing_complete
+    spark_processing_complete >> data_freshness_check
 
     # Data freshness branching
     data_freshness_check >> [skip_pipeline, dbt_deps]
@@ -435,7 +523,9 @@ with DAG(
     # Failure handling
     [
         kafka_health_check,
+        spark_execution_branch,
         spark_batch_processing,
+        spark_batch_processing_local,
         dbt_run_staging,
         dbt_run_intermediate,
         dbt_run_marts,

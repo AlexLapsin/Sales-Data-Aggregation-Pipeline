@@ -362,7 +362,7 @@ with DAG(
 
     quality_alert_slack = SlackWebhookOperator(
         task_id="quality_alert_slack",
-        http_conn_id="slack_webhook",
+        slack_webhook_conn_id="slack_webhook",
         message="""
         Data Quality Alert - {{ ds }}
 
