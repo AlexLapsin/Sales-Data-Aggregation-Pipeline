@@ -6,7 +6,7 @@ This job processes CSV files from S3, transforms the data, and loads it into Sno
 Designed to run on Databricks or standalone Spark clusters.
 
 Usage:
-    spark-submit --packages net.snowflake:snowflake-jdbc:3.14.3,net.snowflake:spark-snowflake_2.12:2.11.3 \
+    spark-submit --packages net.snowflake:snowflake-jdbc:3.14.3,net.snowflake:spark-snowflake_2.12:3.1.4 \
                  sales_batch_job.py --input-path s3a://bucket/path/ --output-table SALES_BATCH_RAW
 """
 
@@ -63,20 +63,20 @@ class SalesETLJob:
             "sfSchema": os.getenv("SNOWFLAKE_SCHEMA"),
             "sfWarehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
             "sfRole": os.getenv("SNOWFLAKE_ROLE"),
-            # Production-grade timeout configuration (2024 best practices)
-            "ssl": "off",
-            "connection_timeout": "30",  # Connection establishment timeout
-            "socket_timeout": "60",  # Socket-level timeout
-            "login_timeout": "30",  # Login process timeout
-            "network_timeout": "60",  # Network issues timeout
-            "query_timeout": "120",  # Query execution timeout
-            "statement_timeout_in_seconds": "120",  # Statement-level timeout
-            # Connection reliability improvements
-            "retry_timeout": "30",  # Retry timeout for failed requests
-            "max_retry_count": "3",  # Maximum retry attempts
-            "retry_delay": "1",  # Delay between retries (seconds)
-            # Enable connection diagnostics for troubleshooting
-            "enable_connection_diag": "true",
+            # FIXED: Conservative timeout configuration to prevent hanging
+            "ssl": "on",  # FIXED: Enable SSL for security
+            "connection_timeout": "20",  # FIXED: Reduced from 30
+            "socket_timeout": "30",  # FIXED: Reduced from 60
+            "login_timeout": "15",  # FIXED: Reduced from 30
+            "network_timeout": "30",  # FIXED: Reduced from 60
+            "query_timeout": "60",  # FIXED: Reduced from 120
+            "statement_timeout_in_seconds": "60",  # FIXED: Reduced from 120
+            # FIXED: Enhanced reliability improvements
+            "retry_timeout": "10",  # FIXED: Reduced retry timeout
+            "max_retry_count": "2",  # FIXED: Reduced retry attempts
+            "retry_delay": "2",  # FIXED: Increased delay between retries
+            # FIXED: Disable diagnostics to reduce overhead
+            "enable_connection_diag": "false",
         }
 
         # Validate required Snowflake config
@@ -278,12 +278,12 @@ class SalesETLJob:
             import snowflake.connector
 
             conn = snowflake.connector.connect(
-                user=os.getenv("SNOWFLAKE_USER"),
-                password=os.getenv("SNOWFLAKE_PASSWORD"),
+                user=self.snowflake_options["sfUser"],
+                password=self.snowflake_options["sfPassword"],
                 account=f"{os.getenv('SNOWFLAKE_ORGANIZATION_NAME')}-{os.getenv('SNOWFLAKE_ACCOUNT_NAME')}",
-                warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
-                database=os.getenv("SNOWFLAKE_DATABASE"),
-                schema=os.getenv("SNOWFLAKE_SCHEMA"),
+                warehouse=self.snowflake_options["sfWarehouse"],
+                database=self.snowflake_options["sfDatabase"],
+                schema=self.snowflake_options["sfSchema"],
                 login_timeout=15,
                 network_timeout=30,
             )
@@ -330,14 +330,42 @@ class SalesETLJob:
         )
 
         try:
-            # Use production-grade timeout configuration
+            # PRODUCTION FIX: Repartition DataFrame for optimal performance
+            # Snowflake recommends 10-100MB partitions for best performance
+            optimal_partitions = max(
+                1, record_count // 5000
+            )  # ~5K records per partition
+            if df.rdd.getNumPartitions() != optimal_partitions:
+                self.logger.info(
+                    f"Repartitioning from {df.rdd.getNumPartitions()} to {optimal_partitions} partitions"
+                )
+                df = df.repartition(optimal_partitions)
+
+            # FIXED: Enhanced Snowflake options to prevent hanging
+            write_options = self.snowflake_options.copy()
+            write_options.update(
+                {
+                    # FIXED: Conservative settings for reliability (compatible with 2.11.3)
+                    "partition_size_in_mb": "16",  # FIXED: Much smaller partitions
+                    "parallel": str(
+                        min(optimal_partitions, 4)
+                    ),  # FIXED: Limit parallelism
+                    "truncate_table": "off",  # Safer for production
+                    "continue_on_error": "off",  # Fail fast on errors
+                    "abort_detached_query": "on",  # FIXED: Enable to prevent hanging
+                    "sfCompressionType": "gzip",  # FIXED: Explicit compression
+                }
+            )
+
+            # Use production-grade write configuration
+            self.logger.info(
+                f"Writing with {min(optimal_partitions, 4)} partitions, 16MB partition size"
+            )
             (
                 df.write.format("snowflake")
-                .options(**self.snowflake_options)
+                .options(**write_options)
                 .option("dbtable", table_name)
-                .option(
-                    "sfCompressionType", "gzip"
-                )  # Enable compression for better performance
+                .option("sfCompressionType", "gzip")
                 .mode(mode)
                 .save()
             )
@@ -471,7 +499,16 @@ def create_spark_session(app_name: str = "SalesETL") -> SparkSession:
         .config("spark.hadoop.fs.s3.secret.key", aws_secret_key)
         .config("spark.hadoop.fs.s3.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         .config("spark.jars.ivy", "/tmp/.ivy2")
-        .config("spark.network.timeout", "800s")
+        .config(
+            "spark.network.timeout", "600s"
+        )  # FIXED: Reduced timeout for faster failure detection
+        .config(
+            "spark.sql.execution.arrow.pyspark.enabled", "false"
+        )  # FIXED: Disable Arrow (conflicts with Snowflake)
+        .config(
+            "spark.serializer", "org.apache.spark.serializer.KryoSerializer"
+        )  # FIXED: Enhanced serialization
+        .config("spark.kryo.registrationRequired", "false")
         .config(
             "spark.driver.extraJavaOptions",
             "-Divy.cache.dir=/tmp/.ivy2 -Divy.home=/tmp",
@@ -483,7 +520,7 @@ def create_spark_session(app_name: str = "SalesETL") -> SparkSession:
         .config(
             "spark.jars.packages",
             "net.snowflake:snowflake-jdbc:3.19.0,"
-            "net.snowflake:spark-snowflake_2.12:3.1.1,"
+            "net.snowflake:spark-snowflake_2.12:3.1.4,"  # FIXED: Using latest stable version compatible with Spark 3.5.0
             "org.apache.hadoop:hadoop-aws:3.3.4,"
             "com.amazonaws:aws-java-sdk-bundle:1.12.367",
         )
