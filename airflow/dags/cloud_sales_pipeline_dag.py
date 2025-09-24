@@ -1,7 +1,7 @@
 # airflow/dags/cloud_sales_pipeline_dag.py
 """
 Cloud Sales Data Pipeline DAG
-Orchestrates the complete modern data pipeline:
+Orchestrates the complete updated data pipeline:
 1. Kafka streaming ingestion (monitoring)
 2. Spark batch ETL processing
 3. dbt transformations in Snowflake
@@ -364,7 +364,7 @@ with DAG(
         mount_tmp_dir=False,
         docker_url="unix://var/run/docker.sock",
         mounts=[Mount(source=os.path.abspath("./dbt"), target="/app/dbt", type="bind")],
-        doc_md="Runs dbt staging models to clean and standardize raw data",
+        doc_md="Runs dbt staging models to clean and normalize raw data",
     )
 
     dbt_run_intermediate = DockerOperator(
@@ -401,7 +401,7 @@ with DAG(
         docker_url="unix://var/run/docker.sock",
         mounts=[Mount(source=os.path.abspath("./dbt"), target="/app/dbt", type="bind")],
         trigger_rule=TriggerRule.ALL_SUCCESS,
-        doc_md="Runs comprehensive dbt tests for data quality validation",
+        doc_md="Runs complete dbt tests for data quality validation",
     )
 
     # ---------------- Data Quality Monitoring ----------------
@@ -463,12 +463,12 @@ with DAG(
         - Batch Records: {{ ti.xcom_pull(key='batch_records', task_ids='data_freshness_check') }}
         - Total Records: {{ ti.xcom_pull(key='total_records', task_ids='data_freshness_check') }}
 
-        🕒 Execution Date: {{ ds }}
+        Execution Date: {{ ds }}
         Duration: {{ (ti.end_date - ti.start_date).total_seconds() }} seconds
 
-        📈 Pipeline Status: All stages completed successfully
+        Pipeline Status: All stages completed successfully
         Data Quality: Monitored and validated
-        📚 Documentation: Updated and available
+        Documentation: Updated and available
         """,
         trigger_rule=TriggerRule.ALL_SUCCESS,
     )
@@ -478,11 +478,11 @@ with DAG(
         task_id="failure_notification",
         slack_webhook_conn_id="slack_webhook",
         message="""
-        ❌ Cloud Sales Pipeline Failed!
+        ERROR: Cloud Sales Pipeline Failed!
 
-        🕒 Execution Date: {{ ds }}
+        Execution Date: {{ ds }}
         Failed Task: {{ ti.task_id }}
-        📝 Error Details: Check Airflow logs for more information
+        Error Details: Check Airflow logs for more information
 
         Action Required: Please investigate and resolve the issue
         """,

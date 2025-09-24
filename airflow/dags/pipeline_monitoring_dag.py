@@ -338,7 +338,7 @@ with DAG(
             <li><strong>Average Quality Score:</strong> {{ ti.xcom_pull(key='daily_report', task_ids='generate_daily_report')['avg_quality_score'] | default('N/A') | round(2) }}</li>
         </ul>
 
-        <h3>📈 Growth Metrics</h3>
+        <h3>Growth Metrics</h3>
         <ul>
             <li><strong>Transaction Growth:</strong> {{ ti.xcom_pull(key='daily_report', task_ids='generate_daily_report')['transaction_growth'] | default('N/A') }}%</li>
             <li><strong>Sales Growth:</strong> {{ ti.xcom_pull(key='daily_report', task_ids='generate_daily_report')['sales_growth'] | default('N/A') }}%</li>
@@ -348,7 +348,7 @@ with DAG(
         {% set quality_issues = ti.xcom_pull(key='quality_issues', task_ids='check_quality_trends') %}
         {% if quality_issues %}
             {% for issue in quality_issues %}
-            <p style="color: orange;">⚠ {{ issue.date }}: {{ issue.issue }}</p>
+            <p style="color: orange;">WARNING: {{ issue.date }}: {{ issue.issue }}</p>
             {% endfor %}
         {% else %}
             <p style="color: green;">No quality issues detected</p>

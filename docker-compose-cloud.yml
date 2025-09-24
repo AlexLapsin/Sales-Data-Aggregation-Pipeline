@@ -9,7 +9,7 @@ services:
   dbt-dev:
     build:
       context: .
-      dockerfile: docker/Dockerfile.dbt
+      dockerfile: infrastructure/docker/dbt/Dockerfile
     container_name: sales-dbt-dev
     volumes:
       - ./dbt:/app/dbt:rw
@@ -34,10 +34,10 @@ services:
   spark-dev:
     build:
       context: .
-      dockerfile: docker/Dockerfile.spark
+      dockerfile: infrastructure/docker/Dockerfile.spark
     container_name: sales-spark-dev
     volumes:
-      - ./spark:/app/spark:rw
+      - ./src/spark:/app/spark:rw
       - ./data:/app/data:ro
     environment:
       - SPARK_MODE=master
@@ -92,7 +92,7 @@ services:
       # Snowflake connector configuration
       SNOWFLAKE_PRIVATE_KEY: ${SNOWFLAKE_PRIVATE_KEY:-}
     volumes:
-      - ./streaming/connectors:/usr/share/confluent-hub-components:ro
+      - ./src/streaming/connectors:/usr/share/confluent-hub-components:ro
     profiles:
       - kafka-cloud
     networks:
@@ -102,7 +102,7 @@ services:
   pipeline-monitor:
     build:
       context: .
-      dockerfile: docker/Dockerfile.monitor
+      dockerfile: infrastructure/docker/Dockerfile.monitor
     container_name: sales-pipeline-monitor
     environment:
       - SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT}
@@ -114,7 +114,7 @@ services:
       - ALERT_EMAIL=${ALERT_EMAIL}
       - MONITOR_INTERVAL=${MONITOR_INTERVAL:-300}  # 5 minutes
     volumes:
-      - ./monitoring:/app/monitoring:ro
+      - ./tools/monitoring:/app/monitoring:ro
     profiles:
       - monitoring
     networks:

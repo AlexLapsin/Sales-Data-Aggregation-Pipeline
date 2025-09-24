@@ -1,6 +1,6 @@
 # Legacy PostgreSQL Components - DEPRECATED
 
-⚠️ **DEPRECATION NOTICE** ⚠️
+**DEPRECATION NOTICE**
 
 This directory contains legacy components of the Sales Data Aggregation Pipeline that are **DEPRECATED** and will be removed in a future version.
 
@@ -8,9 +8,9 @@ This directory contains legacy components of the Sales Data Aggregation Pipeline
 
 | Phase | Date | Status | Description |
 |-------|------|--------|-------------|
-| **Phase 1** | 2025-Q1 | ⚠️ **DEPRECATED** | Components moved to legacy directory |
-| **Phase 2** | 2025-Q2 | ⚠️ **WARNING** | Deprecation warnings added to all legacy components |
-| **Phase 3** | 2025-Q3 | 🚫 **END OF LIFE** | Legacy components will be removed |
+| **Phase 1** | 2025-Q1 | **DEPRECATED** | Components moved to legacy directory |
+| **Phase 2** | 2025-Q2 | **WARNING** | Deprecation warnings added to all legacy components |
+| **Phase 3** | 2025-Q3 | **END OF LIFE** | Legacy components will be removed |
 
 ## What's Deprecated
 
@@ -78,10 +78,10 @@ python tools/import_to_snowflake.py
 
 ### Current Support Level: **LIMITED MAINTENANCE ONLY**
 
-- ✅ **Critical Security Fixes**: Will be applied until EOL
-- ❌ **New Features**: No new features will be added
-- ❌ **Bug Fixes**: Non-security bugs will not be fixed
-- ❌ **Performance Improvements**: No optimizations will be made
+- **Critical Security Fixes**: Will be applied until EOL
+- **New Features**: No new features will be added
+- **Bug Fixes**: Non-security bugs will not be fixed
+- **Performance Improvements**: No optimizations will be made
 
 ### Getting Help
 

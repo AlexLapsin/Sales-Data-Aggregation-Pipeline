@@ -8,18 +8,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECT_URL="http://localhost:8083"
 CONNECTOR_NAME="sales-events-snowflake-sink"
 
-echo "🔌 Deploying Snowflake Kafka Connect Connector"
+echo "Deploying Snowflake Kafka Connect Connector"
 echo "=============================================="
 
 # Function to check if Kafka Connect is ready
 wait_for_connect() {
-    echo "⏳ Waiting for Kafka Connect to be ready..."
+    echo "Waiting for Kafka Connect to be ready..."
     local max_attempts=30
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
         if curl -f "$CONNECT_URL/" >/dev/null 2>&1; then
-            echo "✅ Kafka Connect is ready"
+            echo "SUCCESS: Kafka Connect is ready"
             return 0
         fi
         echo "Attempt $attempt/$max_attempts - waiting for Kafka Connect..."
@@ -27,7 +27,7 @@ wait_for_connect() {
         ((attempt++))
     done
 
-    echo "❌ Kafka Connect failed to start after $max_attempts attempts"
+    echo "ERROR: Kafka Connect failed to start after $max_attempts attempts"
     return 1
 }
 
@@ -37,17 +37,17 @@ substitute_env_vars() {
     local output_file="$2"
 
     envsubst < "$template_file" > "$output_file"
-    echo "✅ Environment variables substituted in $output_file"
+    echo "SUCCESS: Environment variables substituted in $output_file"
 }
 
 # Load environment variables
 if [[ -f "$SCRIPT_DIR/../.env" ]]; then
-    echo "📋 Loading environment variables..."
+    echo "Loading environment variables..."
     set -a
     source "$SCRIPT_DIR/../.env"
     set +a
 else
-    echo "⚠️  .env file not found, using defaults"
+    echo "WARNING: .env file not found, using defaults"
 fi
 
 # Set default values if not provided
@@ -60,7 +60,7 @@ export SNOWFLAKE_ROLE="${SNOWFLAKE_ROLE:-SYSADMIN}"
 
 # Check if Kafka Connect is running
 if ! wait_for_connect; then
-    echo "❌ Please start Kafka Connect first:"
+    echo "ERROR: Please start Kafka Connect first:"
     echo "   docker-compose -f docker-compose-connect.yml up -d"
     exit 1
 fi
@@ -88,9 +88,9 @@ if curl -f "$CONNECT_URL/connectors/$CONNECTOR_NAME" >/dev/null 2>&1; then
         --data @"$TEMP_CONFIG" \
         "$CONNECT_URL/connectors/$CONNECTOR_NAME/config"
 
-    echo "✅ Connector updated successfully"
+    echo "SUCCESS: Connector updated successfully"
 else
-    echo "🆕 Creating new connector..."
+    echo "Creating new connector..."
 
     # Create new connector
     curl -X POST \
@@ -98,7 +98,7 @@ else
         --data @"$TEMP_CONFIG" \
         "$CONNECT_URL/connectors"
 
-    echo "✅ Connector created successfully"
+    echo "SUCCESS: Connector created successfully"
 fi
 
 # Clean up temporary file
@@ -106,14 +106,14 @@ rm -f "$TEMP_CONFIG"
 
 # Check connector status
 echo ""
-echo "📊 Connector Status:"
+echo "Connector Status:"
 curl -s "$CONNECT_URL/connectors/$CONNECTOR_NAME/status" | jq '.'
 
 echo ""
-echo "🎉 Snowflake Kafka Connector deployed!"
+echo "SUCCESS: Snowflake Kafka Connector deployed!"
 echo ""
 echo "Next steps:"
 echo "1. Check connector status: curl $CONNECT_URL/connectors/$CONNECTOR_NAME/status"
 echo "2. View connector logs: docker logs kafka-connect"
-echo "3. Produce test messages: cd .. && python streaming/kafka_producer.py --count 10"
+echo "3. Produce test messages: cd .. && python src/streaming/producers.py --count 10"
 echo "4. Check Snowflake table: SELECT * FROM SALES_DW.RAW.SALES_RAW LIMIT 10;"

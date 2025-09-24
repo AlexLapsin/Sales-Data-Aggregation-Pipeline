@@ -626,7 +626,7 @@ class E2EPipelineTestSuite:
 
     @pytest.mark.asyncio
     async def test_happy_path_pipeline(self):
-        """Test the complete pipeline with clean, perfect data"""
+        """Test the complete pipeline with clean, valid data"""
 
         result = await self.run_complete_pipeline_test(
             scenario_name="happy_path", record_count=1000

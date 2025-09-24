@@ -23,7 +23,7 @@ def demonstrate_test_structure():
         "run_kafka_producer_tests.py",
         "pytest.ini",
         "validate_test_setup.py",
-        "README_KAFKA_PRODUCER_TESTS.md",
+        "kafka_producer_tests_readme.md",
     ]
 
     print("Test files present:")

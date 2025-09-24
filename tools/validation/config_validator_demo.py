@@ -6,10 +6,10 @@ This script demonstrates the configuration validation framework capabilities
 by running various test scenarios and showing the different types of validations.
 
 Usage:
-    python demo_config_validator.py --demo all
-    python demo_config_validator.py --demo basic
-    python demo_config_validator.py --demo security
-    python demo_config_validator.py --demo connectivity
+    python config_validator_demo.py --demo all
+    python config_validator_demo.py --demo basic
+    python config_validator_demo.py --demo security
+    python config_validator_demo.py --demo connectivity
 """
 
 import os
@@ -22,7 +22,7 @@ from typing import Dict
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from config_validator import SetupDoctor, Environment
+from .config_validator import SetupDoctor, Environment
 
 
 class ConfigValidatorDemo:

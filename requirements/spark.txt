@@ -1,0 +1,15 @@
+# PySpark ETL Job Requirements
+-r base.txt
+
+# Core Spark and Python
+pyspark>=3.4.0
+py4j>=0.10.9
+
+# AWS S3 integration
+s3fs>=2023.10.0
+
+# Spark-specific testing
+pytest-spark>=0.6.0
+
+# Optional: Delta Lake support
+# delta-spark>=2.4.0

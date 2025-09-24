@@ -937,7 +937,7 @@ class AWSConnectionTester:
         print("=" * 80)
 
         if results.get("error"):
-            print(f"❌ Test Suite Error: {results['error']}")
+            print(f"ERROR: Test Suite Error: {results['error']}")
             return
 
         print(f"Overall Status: {results['status'].upper()}")
@@ -946,10 +946,10 @@ class AWSConnectionTester:
             summary = results["summary"]
             print(f"\nTest Summary:")
             print(f"  Total Tests: {summary['total_tests']}")
-            print(f"  ✅ Passed: {summary['passed']}")
-            print(f"  ⚠️  Partial: {summary['partial']}")
-            print(f"  ❌ Failed: {summary['failed']}")
-            print(f"  🔥 Errors: {summary['errors']}")
+            print(f"  SUCCESS: Passed: {summary['passed']}")
+            print(f"  WARNING: Partial: {summary['partial']}")
+            print(f"  ERROR: Failed: {summary['failed']}")
+            print(f"  CRITICAL: Errors: {summary['errors']}")
 
         for test_name, test_result in results.get("tests", {}).items():
             print(f"\n{test_name.replace('_', ' ').title()}:")
@@ -957,10 +957,10 @@ class AWSConnectionTester:
 
             status = test_result.get("status", "unknown")
             status_icon = {
-                "success": "✅",
-                "partial": "⚠️",
-                "failed": "❌",
-                "error": "🔥",
+                "success": "SUCCESS",
+                "partial": "WARNING",
+                "failed": "ERROR",
+                "error": "CRITICAL",
             }.get(status, "❓")
 
             print(f"Status: {status_icon} {status.upper()}")
@@ -1073,14 +1073,14 @@ def main():
 
         # Exit with appropriate code
         if results["status"] in ["success", "partial"]:
-            print("\n✅ AWS connection tests completed successfully!")
+            print("\nSUCCESS: AWS connection tests completed successfully!")
             sys.exit(0)
         else:
-            print("\n❌ AWS connection tests failed!")
+            print("\nERROR: AWS connection tests failed!")
             sys.exit(1)
 
     except Exception as e:
-        print(f"\n🔥 Fatal error running AWS tests: {str(e)}")
+        print(f"\nCRITICAL: Fatal error running AWS tests: {str(e)}")
         sys.exit(1)
 
 

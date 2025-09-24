@@ -26,8 +26,8 @@ RUN apt-get update \
 WORKDIR /app
 
 # Install Python deps
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements/ /app/requirements/
+RUN pip install --no-cache-dir -r requirements/base.txt
 
 # Copy your source code
 COPY src/ /app/src

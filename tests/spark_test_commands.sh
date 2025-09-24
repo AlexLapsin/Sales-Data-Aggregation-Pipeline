@@ -40,42 +40,42 @@ alias test-deps-min="pip install pytest pyspark pandas faker"
 
 # Environment setup helpers
 test-env-check() {
-    echo "🔍 Checking test environment..."
+    echo "Checking test environment..."
     python -c "
 import sys
 print(f'Python: {sys.version}')
 
 try:
     import pyspark
-    print('✅ PySpark available')
+    print('SUCCESS: PySpark available')
 except ImportError:
-    print('❌ PySpark not available')
+    print('ERROR: PySpark not available')
 
 try:
     import pytest
-    print('✅ pytest available')
+    print('SUCCESS: pytest available')
 except ImportError:
-    print('❌ pytest not available')
+    print('ERROR: pytest not available')
 
 try:
     import snowflake.connector
-    print('✅ Snowflake connector available')
+    print('SUCCESS: Snowflake connector available')
 except ImportError:
-    print('❌ Snowflake connector not available')
+    print('ERROR: Snowflake connector not available')
 
 import os
 sf_vars = ['SNOWFLAKE_ACCOUNT', 'SNOWFLAKE_USER', 'SNOWFLAKE_PASSWORD']
 sf_configured = all(os.getenv(var) for var in sf_vars)
-print(f'{"✅" if sf_configured else "❌"} Snowflake credentials configured')
+print(f'{"SUCCESS:" if sf_configured else "ERROR:"} Snowflake credentials configured')
 
 aws_vars = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']
 aws_configured = all(os.getenv(var) for var in aws_vars)
-print(f'{"✅" if aws_configured else "❌"} AWS credentials configured')
+print(f'{"SUCCESS:" if aws_configured else "ERROR:"} AWS credentials configured')
 "
 }
 
 test-env-setup() {
-    echo "🛠️  Setting up test environment..."
+    echo "Setting up test environment..."
 
     # Install dependencies
     echo "Installing test dependencies..."
@@ -83,14 +83,14 @@ test-env-setup() {
 
     # Check for credentials
     if [[ -z "$SNOWFLAKE_ACCOUNT" ]]; then
-        echo "⚠️  SNOWFLAKE_ACCOUNT not set. Integration tests will be limited."
+        echo "WARNING: SNOWFLAKE_ACCOUNT not set. Integration tests will be limited."
     fi
 
     if [[ -z "$AWS_ACCESS_KEY_ID" ]]; then
-        echo "⚠️  AWS credentials not set. S3 integration tests will be limited."
+        echo "WARNING: AWS credentials not set. S3 integration tests will be limited."
     fi
 
-    echo "✅ Test environment setup complete!"
+    echo "SUCCESS: Test environment setup complete!"
 }
 
 # Test data generators
@@ -121,12 +121,12 @@ test-memory() {
 
 # Integration test helpers
 test-snowflake() {
-    echo "❄️  Testing Snowflake integration..."
+    echo "Testing Snowflake integration..."
     pytest -m snowflake --tb=short
 }
 
 test-aws() {
-    echo "☁️  Testing AWS integration..."
+    echo "Testing AWS integration..."
     pytest -m aws --tb=short
 }
 

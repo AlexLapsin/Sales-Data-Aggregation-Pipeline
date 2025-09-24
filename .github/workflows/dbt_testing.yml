@@ -322,7 +322,7 @@ jobs:
           echo "- Comprehensive Tests: ${{ needs.comprehensive-tests.result }}" >> $GITHUB_STEP_SUMMARY
 
           if [[ "${{ needs.run-tests.result }}" == "success" && "${{ needs.compile-models.result }}" == "success" ]]; then
-            echo "✅ Core tests passed - Ready for review" >> $GITHUB_STEP_SUMMARY
+            echo "SUCCESS: Core tests passed - Ready for review" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Core tests failed - Review required" >> $GITHUB_STEP_SUMMARY
+            echo "ERROR: Core tests failed - Review required" >> $GITHUB_STEP_SUMMARY
           fi

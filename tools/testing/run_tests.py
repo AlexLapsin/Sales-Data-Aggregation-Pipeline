@@ -325,20 +325,20 @@ class TestRunner:
 
         # Check .env file
         if not self._check_env_file():
-            print("❌ .env file not found")
+            print("ERROR: .env file not found")
             print("   Run: cp .env.example .env")
             print("   Then edit .env with your configuration")
             return False
 
-        print("✓ .env file exists")
+        print("SUCCESS: .env file exists")
 
         # Check Docker
         if not self._check_docker_running():
-            print("❌ Docker is not running")
+            print("ERROR: Docker is not running")
             print("   Please start Docker Desktop")
             return False
 
-        print("✓ Docker is running")
+        print("SUCCESS: Docker is running")
 
         # Check if containers are built
         try:
@@ -348,13 +348,13 @@ class TestRunner:
                 text=True,
             )
             if not result.stdout.strip():
-                print("❌ Docker images not built")
+                print("ERROR: Docker images not built")
                 print("   Run: docker build -t sales-pipeline:latest .")
                 return False
         except:
             return False
 
-        print("✓ Docker images are built")
+        print("SUCCESS: Docker images are built")
 
         print("\nEnvironment setup complete! You can now run tests.")
         return True

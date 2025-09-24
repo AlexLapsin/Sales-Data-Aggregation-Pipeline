@@ -297,12 +297,12 @@ class SalesETLJob:
             conn.close()
 
             self.logger.info(
-                f"✅ Snowflake connection successful (version: {result[0]})"
+                f"SUCCESS: Snowflake connection successful (version: {result[0]})"
             )
             return True
 
         except Exception as e:
-            self.logger.warning(f"❌ Snowflake connection test failed: {str(e)}")
+            self.logger.warning(f"ERROR: Snowflake connection test failed: {str(e)}")
             self.logger.warning("Pipeline will continue without Snowflake integration")
             return False
 
@@ -318,10 +318,10 @@ class SalesETLJob:
         record_count = df.count()
         if record_count == 0:
             self.logger.warning(
-                "⚠️ DataFrame is empty (0 records). Skipping Snowflake write to avoid connector hang."
+                "WARNING: DataFrame is empty (0 records). Skipping Snowflake write to avoid connector hang."
             )
             self.logger.info(
-                "💡 This is a known issue with the Snowflake Spark connector when writing empty DataFrames."
+                "NOTE: This is a known issue with the Snowflake Spark connector when writing empty DataFrames."
             )
             return True  # Return True as this is expected behavior, not a failure
 
@@ -357,7 +357,7 @@ class SalesETLJob:
                 }
             )
 
-            # Use production-grade write configuration
+            # Use optimized write configuration
             self.logger.info(
                 f"Writing with {min(optimal_partitions, 4)} partitions, 16MB partition size"
             )
@@ -371,12 +371,12 @@ class SalesETLJob:
             )
 
             self.logger.info(
-                f"✅ Successfully wrote {record_count} records to {table_name}"
+                f"SUCCESS: Successfully wrote {record_count} records to {table_name}"
             )
             return True
 
         except Exception as e:
-            self.logger.error(f"❌ Failed to write to Snowflake: {str(e)}")
+            self.logger.error(f"ERROR: Failed to write to Snowflake: {str(e)}")
             self.logger.info("Pipeline will continue without Snowflake write")
             return False
 

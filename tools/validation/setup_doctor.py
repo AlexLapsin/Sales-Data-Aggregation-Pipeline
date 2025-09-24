@@ -35,30 +35,32 @@ def quick_health_check():
     # Check if .env file exists
     env_file = Path(".env")
     if not env_file.exists():
-        print("X .env file not found!")
+        print("ERROR: .env file not found!")
         print("→ Copy .env.example to .env and configure your settings")
         return False
 
-    print("✓ .env file found")
+    print("SUCCESS: .env file found")
 
     # Run basic validation
     try:
         report = doctor.run_validation(Environment.DEV, check_connectivity=False)
 
         if report.has_errors():
-            print(f"X Configuration has {report.summary.get('error', 0)} errors")
+            print(f"ERROR: Configuration has {report.summary.get('error', 0)} errors")
             print("→ Run with --verbose for details")
             return False
         elif report.has_warnings():
-            print(f"⚠ Configuration has {report.summary.get('warning', 0)} warnings")
-            print("✓ Ready for development (with warnings)")
+            print(
+                f"WARNING: Configuration has {report.summary.get('warning', 0)} warnings"
+            )
+            print("SUCCESS: Ready for development (with warnings)")
             return True
         else:
-            print("✓ Configuration looks good!")
+            print("SUCCESS: Configuration looks good!")
             return True
 
     except Exception as e:
-        print(f"❌ Validation failed: {e}")
+        print(f"ERROR: Validation failed: {e}")
         return False
 
 
@@ -82,7 +84,7 @@ def full_validation(environment: str = "dev"):
         return not report.has_errors()
 
     except Exception as e:
-        print(f"❌ Validation failed: {e}")
+        print(f"ERROR: Validation failed: {e}")
         return False
 
 
@@ -109,11 +111,11 @@ def guided_setup_check():
             result = check_func()
             results[step_name] = result
             if result:
-                print("✓ PASSED")
+                print("SUCCESS: PASSED")
             else:
-                print("❌ NEEDS ATTENTION")
+                print("ERROR: NEEDS ATTENTION")
         except Exception as e:
-            print(f"❌ ERROR: {e}")
+            print(f"ERROR: {e}")
             results[step_name] = False
 
     # Summary
@@ -125,8 +127,8 @@ def guided_setup_check():
     total = len(results)
 
     for step, result in results.items():
-        status = "✓" if result else "X"
-        print(f"{status} {step}")
+        status = "SUCCESS" if result else "ERROR"
+        print(f"{status}: {step}")
 
     print(f"\nOverall: {passed}/{total} checks passed")
 
@@ -144,7 +146,7 @@ def check_env_file():
     """Check if .env file exists and has basic content"""
     env_file = Path(".env")
     if not env_file.exists():
-        print("  ❌ .env file not found")
+        print("  ERROR: .env file not found")
         print("  → Copy .env.example to .env")
         return False
 
@@ -160,10 +162,10 @@ def check_env_file():
             missing_vars.append(var)
 
     if missing_vars:
-        print(f"  ⚠ Missing variables: {', '.join(missing_vars)}")
+        print(f"  WARNING: Missing variables: {', '.join(missing_vars)}")
         return False
 
-    print("  ✓ .env file exists with basic variables")
+    print("  SUCCESS: .env file exists with basic variables")
     return True
 
 
@@ -189,11 +191,11 @@ def check_aws_credentials():
 
     if issues:
         for issue in issues:
-            print(f"  ❌ {issue}")
+            print(f"  ERROR: {issue}")
         print("  → Configure your AWS credentials in .env")
         return False
 
-    print("  ✓ AWS credentials configured")
+    print("  SUCCESS: AWS credentials configured")
     return True
 
 
@@ -215,11 +217,11 @@ def check_s3_config():
 
     if issues:
         for issue in issues:
-            print(f"  ❌ {issue}")
+            print(f"  ERROR: {issue}")
         print("  → Set unique S3 bucket names in .env")
         return False
 
-    print("  ✓ S3 buckets configured")
+    print("  SUCCESS: S3 buckets configured")
     print(f"    Raw bucket: {s3_bucket}")
     print(f"    Processed bucket: {processed_bucket}")
     return True
@@ -235,7 +237,7 @@ def check_database_config():
     rds_pass = env_vars.get("RDS_PASS", "")
 
     if not rds_host:
-        print("  ⚠ RDS_HOST not set (OK for initial setup)")
+        print("  WARNING: RDS_HOST not set (OK for initial setup)")
         print("  → Set after running 'terraform apply'")
         return True
 
@@ -249,10 +251,10 @@ def check_database_config():
 
     if issues:
         for issue in issues:
-            print(f"  ❌ {issue}")
+            print(f"  ERROR: {issue}")
         return False
 
-    print("  ✓ Database configuration looks good")
+    print("  SUCCESS: Database configuration looks good")
     return True
 
 
@@ -266,10 +268,10 @@ def check_docker_config():
             ["docker", "--version"], capture_output=True, text=True, timeout=5
         )
         if result.returncode != 0:
-            print("  ❌ Docker not available")
+            print("  ERROR: Docker not available")
             return False
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        print("  ❌ Docker not found or not responsive")
+        print("  ERROR: Docker not found or not responsive")
         print("  → Install Docker and ensure it's running")
         return False
 
@@ -278,7 +280,7 @@ def check_docker_config():
     missing_files = [f for f in compose_files if not Path(f).exists()]
 
     if missing_files:
-        print(f"  ⚠ Missing Docker Compose files: {missing_files}")
+        print(f"  WARNING: Missing Docker Compose files: {missing_files}")
         return False
 
     # Check HOST_DATA_DIR if set
@@ -287,11 +289,11 @@ def check_docker_config():
     host_data_dir = env_vars.get("HOST_DATA_DIR", "")
 
     if host_data_dir and not Path(host_data_dir).exists():
-        print(f"  ❌ HOST_DATA_DIR path doesn't exist: {host_data_dir}")
+        print(f"  ERROR: HOST_DATA_DIR path doesn't exist: {host_data_dir}")
         print("  → Create the directory or update the path in .env")
         return False
 
-    print("  ✓ Docker configuration ready")
+    print("  SUCCESS: Docker configuration ready")
     return True
 
 
@@ -300,14 +302,14 @@ def check_terraform_config():
     terraform_dir = Path("infra")
 
     if not terraform_dir.exists():
-        print("  ❌ Terraform directory (infra/) not found")
+        print("  ERROR: Terraform directory (infra/) not found")
         return False
 
     required_files = ["main.tf", "variables.tf", "outputs.tf"]
     missing_files = [f for f in required_files if not (terraform_dir / f).exists()]
 
     if missing_files:
-        print(f"  ⚠ Missing Terraform files: {missing_files}")
+        print(f"  WARNING: Missing Terraform files: {missing_files}")
 
     # Check if terraform is available
     try:
@@ -317,15 +319,15 @@ def check_terraform_config():
             ["terraform", "--version"], capture_output=True, text=True, timeout=5
         )
         if result.returncode != 0:
-            print("  ⚠ Terraform not available")
+            print("  WARNING: Terraform not available")
             print("  → Install Terraform for infrastructure management")
             return True  # Not critical for basic setup
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        print("  ⚠ Terraform not found")
+        print("  WARNING: Terraform not found")
         print("  → Install Terraform for infrastructure management")
         return True  # Not critical for basic setup
 
-    print("  ✓ Terraform configuration available")
+    print("  SUCCESS: Terraform configuration available")
     return True
 
 

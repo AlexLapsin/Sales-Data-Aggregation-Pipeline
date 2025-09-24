@@ -7,7 +7,7 @@
 # legacy/orchestration/airflow/dags/legacy_postgres_pipeline_dag.py
 #
 # This DAG is DEPRECATED and will be removed in Q3 2025.
-# Please migrate to the modern cloud-native pipeline:
+# Please migrate to the updated cloud pipeline:
 # - Use: cloud_sales_pipeline_dag.py
 # - See: legacy/README.md for migration guide
 # ========================================
@@ -40,12 +40,12 @@ def deprecation_notice(**context):
     🔄 IMMEDIATE ACTION REQUIRED:
 
     1. DISABLE this DAG in the Airflow UI
-    2. ENABLE the modern cloud DAG: cloud_sales_pipeline_dag.py
+    2. ENABLE the updated cloud DAG: cloud_sales_pipeline_dag.py
     3. OR use the legacy version: legacy_postgres_sales_aggregation
 
     📚 Migration Resources:
     - Migration Guide: legacy/README.md
-    - Modern Architecture: docs/architecture/modern-pipeline.md
+    - Updated Architecture: docs/architecture/current-pipeline.md
     - Support: Create GitHub issue with 'migration-support' tag
 
     ⏰ Timeline:
@@ -97,7 +97,7 @@ with DAG(
     ## 📋 Migration Checklist
 
     - [ ] Disable this DAG in Airflow UI
-    - [ ] Choose modern (cloud_sales_pipeline_dag.py) or legacy version
+    - [ ] Choose updated (cloud_sales_pipeline_dag.py) or legacy version
     - [ ] Update environment configuration
     - [ ] Test new pipeline with sample data
     - [ ] Update monitoring and alerting

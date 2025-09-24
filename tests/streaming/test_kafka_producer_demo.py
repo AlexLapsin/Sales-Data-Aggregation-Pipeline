@@ -14,7 +14,7 @@ import time
 from datetime import datetime, timezone
 
 # Add streaming directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "streaming"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "src", "streaming"))
 
 
 def demo_data_generation():
@@ -22,7 +22,7 @@ def demo_data_generation():
     print("==> Testing SalesDataGenerator...")
 
     try:
-        from kafka_producer import SalesDataGenerator
+        from producers import SalesDataGenerator
 
         generator = SalesDataGenerator()
 
@@ -178,7 +178,7 @@ def demo_producer_mocking():
         print("  ✓ Mock producer created with correct configuration")
 
         # Test message production
-        from kafka_producer import SalesDataGenerator
+        from producers import SalesDataGenerator
 
         generator = SalesDataGenerator()
 
@@ -206,7 +206,7 @@ def demo_schema_validation():
     print("\n==> Testing Schema Validation...")
 
     try:
-        from kafka_producer import SalesDataGenerator
+        from producers import SalesDataGenerator
 
         generator = SalesDataGenerator()
         event = generator.generate_sales_event()
@@ -267,7 +267,7 @@ def demo_performance_testing():
     print("\n==> Testing Performance...")
 
     try:
-        from kafka_producer import SalesDataGenerator
+        from producers import SalesDataGenerator
 
         generator = SalesDataGenerator()
 
@@ -336,14 +336,16 @@ def main():
     if successful_tests == total_tests:
         print("\n==> All test categories are functional!")
         print("\n==> Next steps:")
-        print("  1. Install test dependencies: pip install -r requirements-test.txt")
-        print("  2. Run unit tests: python run_kafka_producer_tests.py --mode unit")
+        print("  1. Install test dependencies: pip install -r requirements/test.txt")
         print(
-            "  3. Start Kafka and run integration tests: python run_kafka_producer_tests.py --mode integration"
+            "  2. Run unit tests: python tests/streaming/run_kafka_producer_tests.py --mode unit"
+        )
+        print(
+            "  3. Start Kafka and run integration tests: python tests/streaming/run_kafka_producer_tests.py --mode integration"
         )
     else:
         print(
-            "\n==> Some test categories have issues - check the streaming/kafka_producer.py file"
+            "\n==> Some test categories have issues - check the src/streaming/producers.py file"
         )
 
     return 0 if successful_tests == total_tests else 1

@@ -17,7 +17,7 @@ Usage:
     python run_kafka_producer_tests.py --mode schema
 
 Requirements:
-    - Install test dependencies: pip install -r requirements-test.txt
+    - Install test dependencies: pip install -r requirements/test.txt
     - For integration tests: Ensure Kafka is running
     - For performance tests: Ensure adequate system resources
 """
@@ -66,7 +66,7 @@ class KafkaProducerTestRunner:
 
         if missing_packages:
             logger.error(f"Missing required packages: {missing_packages}")
-            logger.error("Install with: pip install -r requirements-test.txt")
+            logger.error("Install with: pip install -r requirements/test.txt")
             return False
 
         return True
@@ -122,7 +122,7 @@ class KafkaProducerTestRunner:
         return self.run_tests(
             test_markers=["unit"],
             extra_args=[
-                "--cov=streaming.kafka_producer",
+                "--cov=src.streaming.producers",
                 "--cov-report=term-missing",
                 "--cov-report=html:htmlcov/unit",
                 "-v",
@@ -180,7 +180,7 @@ class KafkaProducerTestRunner:
         kafka_available = self.check_kafka_availability()
 
         extra_args = [
-            "--cov=streaming.kafka_producer",
+            "--cov=src.streaming.producers",
             "--cov-report=term-missing",
             "--cov-report=html:htmlcov/all",
             "--junit-xml=test_results.xml",
@@ -211,7 +211,7 @@ class KafkaProducerTestRunner:
             "-m",
             "pytest",
             self.test_file,
-            "--cov=streaming.kafka_producer",
+            "--cov=src.streaming.producers",
             "--cov-report=html:htmlcov/report",
             "--cov-report=term",
             "--html=test_report.html",
