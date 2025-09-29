@@ -84,7 +84,12 @@ class SalesDataGenerator:
         }
 
     def generate_sales_event(self) -> Dict:
-        """Generate a single sales event"""
+        """Generate a complete 24-field sales event matching CSV schema"""
+        from faker import Faker
+
+        fake = Faker()
+
+        # Generate base data
         category = random.choice(list(self.product_categories.keys()))
         product = random.choice(self.product_categories[category])
         price_range = self.price_ranges[category]
@@ -96,33 +101,66 @@ class SalesDataGenerator:
         )[0]
 
         unit_price = round(random.uniform(*price_range), 2)
-        total_price = round(unit_price * quantity, 2)
+        sales_amount = round(unit_price * quantity, 2)
+        discount_rate = (
+            round(random.uniform(0, 0.5), 4) if random.random() < 0.3 else 0.0
+        )
+        shipping_cost = round(random.uniform(5.0, 50.0), 2)
+        profit = round(sales_amount * random.uniform(0.1, 0.4) - shipping_cost, 2)
 
+        # Generate complete 24-field event matching CSV schema exactly
         event = {
-            "order_id": str(uuid.uuid4()),
-            "store_id": f"STORE_{random.choice(self.store_locations).upper().replace(' ', '_')}",
-            "product_id": f"{category.upper()}_{product.upper().replace(' ', '_')}_{random.randint(1000, 9999)}",
-            "product_name": product,
-            "category": category,
-            "quantity": quantity,
-            "unit_price": unit_price,
-            "total_price": total_price,
-            "sale_timestamp": datetime.now(timezone.utc).isoformat(),
-            "customer_id": f"CUST_{random.randint(10000, 99999)}",
-            "payment_method": random.choice(
-                ["Credit Card", "Debit Card", "Cash", "Digital Wallet"]
+            # Core transaction fields (1-6)
+            "row_id": random.randint(1, 1000000),
+            "order_id": f"ORD-{random.randint(100000, 999999)}",
+            "order_date": fake.date_between(
+                start_date="-30d", end_date="today"
+            ).strftime("%d-%m-%Y"),
+            "ship_date": fake.date_between(
+                start_date="today", end_date="+10d"
+            ).strftime("%d-%m-%Y"),
+            "ship_mode": random.choice(
+                ["Same Day", "First Class", "Second Class", "Standard Class"]
             ),
-            "discount": round(random.uniform(0, 0.25), 2)
-            if random.random() < 0.3
-            else 0.0,
-            "store_location": random.choice(self.store_locations),
+            # Customer fields (7-12)
+            "customer_id": f"CUST-{random.randint(10000, 99999)}",
+            "customer_name": fake.name(),
+            "segment": random.choice(["Consumer", "Corporate", "Home Office"]),
+            "city": fake.city(),
+            "state": fake.state(),
+            "country": fake.country(),
+            "postal_code": fake.postcode(),
+            # Geographic fields (13-14)
+            "market": random.choice(["APAC", "EU", "US", "LATAM", "Africa"]),
+            "region": random.choice(["East", "West", "Central", "South"]),
+            # Product fields (15-18)
+            "product_id": f"PROD-{random.randint(1000, 9999)}",
+            "category": category,
+            "sub_category": random.choice(
+                [
+                    "Phones",
+                    "Chairs",
+                    "Storage",
+                    "Tables",
+                    "Binders",
+                    "Supplies",
+                    "Machines",
+                ]
+            ),
+            "product_name": product,
+            # Financial fields (19-23)
+            "sales": sales_amount,
+            "quantity": quantity,
+            "discount": discount_rate,
+            "profit": profit,
+            "shipping_cost": shipping_cost,
+            # Business priority (24)
+            "order_priority": random.choice(["Low", "Medium", "High", "Critical"]),
+            # Streaming metadata (additional fields for processing)
+            "event_timestamp": datetime.now(timezone.utc).isoformat(),
+            "source_system": "streaming",
+            "producer_id": "kafka_sales_producer_v2_24field",
         }
-
-        # Apply discount if applicable
-        if event["discount"] > 0:
-            event["total_price"] = round(
-                event["total_price"] * (1 - event["discount"]), 2
-            )
 
         return event
 
@@ -211,7 +249,7 @@ class KafkaSalesProducer:
                     logger.debug(
                         f"Latest event: Order {event['order_id']}, "
                         f"Product: {event['product_name']}, "
-                        f"Total: ${event['total_price']}"
+                        f"Sales: ${event['sales']}"
                     )
 
         except KeyboardInterrupt:
