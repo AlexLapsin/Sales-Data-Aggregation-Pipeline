@@ -45,7 +45,13 @@ resource "aws_iam_role_policy_attachment" "etl_attach" {
   policy_arn = aws_iam_policy.etl_policy.arn
 }
 
-# IAM Role for Kafka Connect to Snowflake
+# Attach ETL policy to data-pipeline-user for Bronze layer operations
+resource "aws_iam_user_policy_attachment" "data_pipeline_user_etl" {
+  user       = "data-pipeline-user"
+  policy_arn = aws_iam_policy.etl_policy.arn
+}
+
+# IAM Role for Kafka Connect to Bronze S3 Layer
 data "aws_iam_policy_document" "kafka_connect_assume_role" {
   statement {
     effect  = "Allow"
@@ -68,7 +74,7 @@ resource "aws_iam_role" "kafka_connect_role" {
   }
 }
 
-# Policy for Kafka Connect to access S3 (for staging data to Snowflake)
+# Policy for Kafka Connect to access S3 Bronze layer
 resource "aws_iam_policy" "kafka_connect_policy" {
   name        = "${var.PROJECT_NAME}-kafka-connect-policy"
   description = "Policy for Kafka Connect to access S3 and other AWS services"
