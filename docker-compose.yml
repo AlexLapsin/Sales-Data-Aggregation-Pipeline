@@ -24,6 +24,21 @@ services:
     env_file:
     - .env
 
+  # dbt service for data transformations
+  dbt:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.dbt
+    image: dbt-pipeline:latest
+    depends_on:
+      - etl-pipeline
+    env_file:
+      - .env
+    environment:
+      DBT_TARGET: dev
+      DBT_PROFILES_DIR: /app/dbt
+    command: sleep infinity
+
   # Spark service for local Spark execution
   spark-local:
     build:
@@ -119,12 +134,16 @@ services:
       CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
       CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
       CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR
+      # AWS credentials for S3 Sink Connector
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
     command:
       - bash
       - -c
       - |
-        echo "Installing Snowflake Kafka Connector..."
-        confluent-hub install --no-prompt snowflakeinc/snowflake-kafka-connector:latest
+        echo "Installing S3 Sink Connector for Bronze layer..."
+        confluent-hub install --no-prompt confluentinc/kafka-connect-s3:latest
         echo "Starting Kafka Connect..."
         /etc/confluent/docker/run
     healthcheck:
@@ -166,11 +185,21 @@ services:
       # Absolute host path to your repo's data folder (must contain ./raw/*.csv)
       HOST_DATA_DIR: ${HOST_DATA_DIR}
 
+      # dbt configuration standardization
+      DBT_PROJECT_PATH: "/app/dbt"
+      DBT_PROFILES_DIR: "/app/dbt"
+
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
       - ./airflow/scripts:/opt/airflow/scripts
+      # dbt project files for Cosmos DAG parsing
+      - ./dbt:/app/dbt
+      # Dedicated volume for dbt artifacts and outputs
+      - dbt_artifacts:/app/dbt/target
+      # Local data directory for Bronze ingestion
+      - ./data:/app/data
       # Docker socket for DockerOperator
       - //var/run/docker.sock:/var/run/docker.sock
 
@@ -195,6 +224,8 @@ services:
 
 volumes:
   ivy-cache:
+    driver: local
+  dbt_artifacts:
     driver: local
 
 networks:
