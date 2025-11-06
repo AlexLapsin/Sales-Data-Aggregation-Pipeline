@@ -1,5 +1,5 @@
 services:
-  # Airflow metadata DB (local)
+  # Airflow metadata DB (for workflow state only, not sales data)
   postgres:
     image: postgres:15
     environment:
@@ -23,6 +23,8 @@ services:
     command: sleep infinity
     env_file:
     - .env
+    volumes:
+      - ./data/raw:/app/data/raw:ro
 
   # dbt service for data transformations
   dbt:
@@ -37,6 +39,9 @@ services:
     environment:
       DBT_TARGET: dev
       DBT_PROFILES_DIR: /app/dbt
+    volumes:
+      - ./config/keys:/config/keys:ro
+      - ./dbt:/app/dbt
     command: sleep infinity
 
   # Spark service for local Spark execution
@@ -152,6 +157,20 @@ services:
       timeout: 10s
       retries: 5
 
+  # Kafka Connect Init - Auto-deploy S3 Bronze connector on startup
+  kafka-connect-init:
+    image: bash:5.2-alpine3.19
+    container_name: kafka-connect-init
+    depends_on:
+      kafka-connect:
+        condition: service_healthy
+    volumes:
+      - ./deploy/streaming:/scripts
+    environment:
+      KAFKA_CONNECT_URL: http://kafka-connect:8083
+    command: sh -c "apk add --no-cache curl && bash /scripts/deploy_connector.sh"
+    restart: "no"
+
   # Airflow
   airflow:
     build:
@@ -167,11 +186,12 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - .env    # loads AWS/RDS/S3 vars used by tasks
+      - .env    # loads AWS/S3/Snowflake vars used by tasks
     environment:
       # Airflow core
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: "90"
       AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.session,airflow.api.auth.backend.basic_auth"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
 
@@ -189,6 +209,16 @@ services:
       DBT_PROJECT_PATH: "/app/dbt"
       DBT_PROFILES_DIR: "/app/dbt"
 
+      # Snowflake credentials for dbt Cosmos integration
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      SNOWFLAKE_PRIVATE_KEY_PATH: /config/keys/rsa_key.p8
+      SNOWFLAKE_KEY_PASSPHRASE: "${SNOWFLAKE_KEY_PASSPHRASE}"
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA}
+
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -198,8 +228,12 @@ services:
       - ./dbt:/app/dbt
       # Dedicated volume for dbt artifacts and outputs
       - dbt_artifacts:/app/dbt/target
+      # Snowflake keypair authentication
+      - ./config/keys:/config/keys:ro
       # Local data directory for Bronze ingestion
       - ./data:/app/data
+      # Source code for Bronze layer and other imports
+      - ./src:/app/src
       # Docker socket for DockerOperator
       - //var/run/docker.sock:/var/run/docker.sock
 
