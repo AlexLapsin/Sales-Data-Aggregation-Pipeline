@@ -547,9 +547,12 @@ class TestEndToEndWorkflow:
         execution_date = datetime(2024, 1, 1, 2, 0, 0)
 
         # Phase 1: Cloud Sales Pipeline
-        with patch("subprocess.run") as mock_subprocess, patch(
-            "airflow.providers.snowflake.hooks.snowflake.SnowflakeHook"
-        ) as mock_snowflake:
+        with (
+            patch("subprocess.run") as mock_subprocess,
+            patch(
+                "airflow.providers.snowflake.hooks.snowflake.SnowflakeHook"
+            ) as mock_snowflake,
+        ):
 
             # Mock healthy Kafka
             mock_result = Mock()

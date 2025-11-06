@@ -53,9 +53,11 @@ class DockerHealthChecker:
                             container.attrs.get("State", {}), "Health", {}
                         ).get("Status", "unknown"),
                         "ports": container.ports,
-                        "image": container.image.tags[0]
-                        if container.image.tags
-                        else "unknown",
+                        "image": (
+                            container.image.tags[0]
+                            if container.image.tags
+                            else "unknown"
+                        ),
                     }
             return {"error": f"Container {service_name} not found"}
         except Exception as e:

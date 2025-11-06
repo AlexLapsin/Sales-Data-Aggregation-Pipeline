@@ -375,7 +375,7 @@ class TestETLJobConfiguration:
         env_vars = {
             "SNOWFLAKE_ACCOUNT": "test.account",
             "SNOWFLAKE_USER": "test_user",
-            "SNOWFLAKE_PASSWORD": "test_password"
+            "SNOWFLAKE_PASSWORD": "test_password",
             # Other values should use defaults
         }
 

@@ -324,9 +324,11 @@ class RawDataValidator(BaseDataValidator):
             passed,
             score,
             details,
-            f"Business rule violations: {total_violation_rate:.2%}"
-            if not passed
-            else None,
+            (
+                f"Business rule violations: {total_violation_rate:.2%}"
+                if not passed
+                else None
+            ),
         )
 
     def _validate_data_quality(self, df: pd.DataFrame) -> ValidationResult:
@@ -596,9 +598,9 @@ class KafkaStreamValidator(BaseDataValidator):
             "consistency_issues": consistency_issues,
             "unique_orders": unique_orders,
             "total_messages": len(messages),
-            "timestamp_range_minutes": time_range.total_seconds() / 60
-            if timestamps
-            else None,
+            "timestamp_range_minutes": (
+                time_range.total_seconds() / 60 if timestamps else None
+            ),
         }
 
         return self._create_result(
@@ -606,9 +608,11 @@ class KafkaStreamValidator(BaseDataValidator):
             passed,
             score,
             details,
-            f"Found {len(consistency_issues)} consistency issues"
-            if not passed
-            else None,
+            (
+                f"Found {len(consistency_issues)} consistency issues"
+                if not passed
+                else None
+            ),
         )
 
     def _validate_throughput(self, messages: List[Dict], **kwargs) -> ValidationResult:
@@ -632,9 +636,9 @@ class KafkaStreamValidator(BaseDataValidator):
             "duration_seconds": duration_seconds,
             "actual_throughput": actual_throughput,
             "min_throughput": min_throughput,
-            "throughput_ratio": actual_throughput / min_throughput
-            if min_throughput > 0
-            else None,
+            "throughput_ratio": (
+                actual_throughput / min_throughput if min_throughput > 0 else None
+            ),
         }
 
         return self._create_result(
@@ -642,9 +646,11 @@ class KafkaStreamValidator(BaseDataValidator):
             passed,
             score,
             details,
-            f"Low throughput: {actual_throughput:.1f} msg/s (required: {min_throughput})"
-            if not passed
-            else None,
+            (
+                f"Low throughput: {actual_throughput:.1f} msg/s (required: {min_throughput})"
+                if not passed
+                else None
+            ),
         )
 
 
@@ -763,9 +769,11 @@ class SparkETLValidator(BaseDataValidator):
             passed,
             score,
             details,
-            f"Found {len(transformation_issues)} transformation issues"
-            if not passed
-            else None,
+            (
+                f"Found {len(transformation_issues)} transformation issues"
+                if not passed
+                else None
+            ),
         )
 
     def _validate_data_enrichment(self, output_df: pd.DataFrame) -> ValidationResult:
@@ -916,9 +924,11 @@ class DataWarehouseValidator(BaseDataValidator):
             passed,
             score,
             details,
-            f"Found {len(structure_issues)} structure issues"
-            if structure_issues
-            else None,
+            (
+                f"Found {len(structure_issues)} structure issues"
+                if structure_issues
+                else None
+            ),
         )
 
     def _validate_data_integrity(self, connection) -> ValidationResult:
@@ -956,9 +966,11 @@ class DataWarehouseValidator(BaseDataValidator):
             passed,
             score,
             details,
-            f"Found {len(integrity_issues)} integrity violations"
-            if integrity_issues
-            else None,
+            (
+                f"Found {len(integrity_issues)} integrity violations"
+                if integrity_issues
+                else None
+            ),
         )
 
     def _validate_business_metrics(self, connection) -> ValidationResult:

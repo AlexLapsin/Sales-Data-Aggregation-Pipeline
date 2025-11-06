@@ -80,13 +80,15 @@ class ErrorTestResult:
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat(),
             "error_injected_at": self.error_injected_at.isoformat(),
-            "recovery_detected_at": self.recovery_detected_at.isoformat()
-            if self.recovery_detected_at
-            else None,
+            "recovery_detected_at": (
+                self.recovery_detected_at.isoformat()
+                if self.recovery_detected_at
+                else None
+            ),
             "test_passed": self.test_passed,
-            "validation_summary": self.validation_summary.to_dict()
-            if self.validation_summary
-            else None,
+            "validation_summary": (
+                self.validation_summary.to_dict() if self.validation_summary else None
+            ),
             "error_details": self.error_details,
             "recovery_time_seconds": self.recovery_time_seconds,
             "data_consistency_check": self.data_consistency_check,

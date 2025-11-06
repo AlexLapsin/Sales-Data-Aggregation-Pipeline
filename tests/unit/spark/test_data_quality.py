@@ -98,12 +98,12 @@ class DataQualityChecker:
                 "count": stats["count"],
                 "expected_min": min_val,
                 "expected_max": max_val,
-                "min_violation": stats["actual_min"] < min_val
-                if min_val is not None
-                else False,
-                "max_violation": stats["actual_max"] > max_val
-                if max_val is not None
-                else False,
+                "min_violation": (
+                    stats["actual_min"] < min_val if min_val is not None else False
+                ),
+                "max_violation": (
+                    stats["actual_max"] > max_val if max_val is not None else False
+                ),
             }
 
         return results

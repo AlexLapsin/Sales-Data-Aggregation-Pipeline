@@ -139,7 +139,7 @@ def sample_sales_data(fake: Faker) -> List[Dict[str, Any]]:
 
 @pytest.fixture
 def temp_csv_directory(
-    sample_sales_data: List[Dict[str, Any]]
+    sample_sales_data: List[Dict[str, Any]],
 ) -> Generator[str, None, None]:
     """Create temporary directory with sample CSV files for testing."""
     temp_dir = tempfile.mkdtemp()

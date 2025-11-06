@@ -311,43 +311,51 @@ class PerformanceMonitor:
                 "max_used_mb": df["memory_used_mb"].max(),
             },
             "disk_io": {
-                "total_read_mb": df["disk_io_read_mb"].iloc[-1]
-                - df["disk_io_read_mb"].iloc[0]
-                if len(df) > 1
-                else 0,
-                "total_write_mb": df["disk_io_write_mb"].iloc[-1]
-                - df["disk_io_write_mb"].iloc[0]
-                if len(df) > 1
-                else 0,
+                "total_read_mb": (
+                    df["disk_io_read_mb"].iloc[-1] - df["disk_io_read_mb"].iloc[0]
+                    if len(df) > 1
+                    else 0
+                ),
+                "total_write_mb": (
+                    df["disk_io_write_mb"].iloc[-1] - df["disk_io_write_mb"].iloc[0]
+                    if len(df) > 1
+                    else 0
+                ),
                 "avg_read_rate_mb_s": self._calculate_rate(df, "disk_io_read_mb"),
                 "avg_write_rate_mb_s": self._calculate_rate(df, "disk_io_write_mb"),
             },
             "network": {
-                "total_sent_mb": df["network_sent_mb"].iloc[-1]
-                - df["network_sent_mb"].iloc[0]
-                if len(df) > 1
-                else 0,
-                "total_recv_mb": df["network_recv_mb"].iloc[-1]
-                - df["network_recv_mb"].iloc[0]
-                if len(df) > 1
-                else 0,
+                "total_sent_mb": (
+                    df["network_sent_mb"].iloc[-1] - df["network_sent_mb"].iloc[0]
+                    if len(df) > 1
+                    else 0
+                ),
+                "total_recv_mb": (
+                    df["network_recv_mb"].iloc[-1] - df["network_recv_mb"].iloc[0]
+                    if len(df) > 1
+                    else 0
+                ),
                 "avg_send_rate_mb_s": self._calculate_rate(df, "network_sent_mb"),
                 "avg_recv_rate_mb_s": self._calculate_rate(df, "network_recv_mb"),
             },
             "sampling": {
                 "total_samples": len(snapshots),
                 "duration_seconds": (
-                    snapshots[-1].timestamp - snapshots[0].timestamp
-                ).total_seconds()
-                if len(snapshots) > 1
-                else 0,
-                "sampling_rate": len(snapshots)
-                / max(
-                    1,
-                    (snapshots[-1].timestamp - snapshots[0].timestamp).total_seconds(),
-                )
-                if len(snapshots) > 1
-                else 0,
+                    (snapshots[-1].timestamp - snapshots[0].timestamp).total_seconds()
+                    if len(snapshots) > 1
+                    else 0
+                ),
+                "sampling_rate": (
+                    len(snapshots)
+                    / max(
+                        1,
+                        (
+                            snapshots[-1].timestamp - snapshots[0].timestamp
+                        ).total_seconds(),
+                    )
+                    if len(snapshots) > 1
+                    else 0
+                ),
             },
         }
 
@@ -568,9 +576,9 @@ class PerformanceMonitor:
                     {
                         "component": component_name,
                         "type": "cpu",
-                        "severity": "high"
-                        if stats["avg_cpu_percent"] > 90
-                        else "medium",
+                        "severity": (
+                            "high" if stats["avg_cpu_percent"] > 90 else "medium"
+                        ),
                         "value": stats["avg_cpu_percent"],
                     }
                 )
@@ -581,9 +589,9 @@ class PerformanceMonitor:
                     {
                         "component": component_name,
                         "type": "memory",
-                        "severity": "high"
-                        if stats["avg_memory_percent"] > 90
-                        else "medium",
+                        "severity": (
+                            "high" if stats["avg_memory_percent"] > 90 else "medium"
+                        ),
                         "value": stats["avg_memory_percent"],
                     }
                 )

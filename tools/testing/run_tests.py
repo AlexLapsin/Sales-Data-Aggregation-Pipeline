@@ -278,9 +278,9 @@ class TestRunner:
             "total_categories": total_tests,
             "passed_categories": passed_tests,
             "failed_categories": failed_tests,
-            "success_rate": (passed_tests / total_tests * 100)
-            if total_tests > 0
-            else 0,
+            "success_rate": (
+                (passed_tests / total_tests * 100) if total_tests > 0 else 0
+            ),
             "failed_categories_list": [
                 category
                 for category, result in results.items()

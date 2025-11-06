@@ -319,9 +319,9 @@ class E2EPipelineTestSuite:
             "messages_produced": len(messages),
             "producer_duration": producer_result.get("duration_seconds", 0),
             "throughput": len(messages) / producer_result.get("duration_seconds", 1),
-            "monitoring_data": monitor_result
-            if not isinstance(monitor_result, Exception)
-            else {},
+            "monitoring_data": (
+                monitor_result if not isinstance(monitor_result, Exception) else {}
+            ),
         }
 
         self.logger.info(
@@ -393,9 +393,9 @@ class E2EPipelineTestSuite:
             "processing_duration": duration,
             "input_records": len(test_data.get("csv_data", [])),
             "output_records": result.get("records_processed", 0),
-            "throughput": result.get("records_processed", 0) / duration
-            if duration > 0
-            else 0,
+            "throughput": (
+                result.get("records_processed", 0) / duration if duration > 0 else 0
+            ),
             "spark_job_result": result,
         }
 
