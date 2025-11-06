@@ -24,10 +24,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements/core.txt
-          pip install -r requirements/dev.txt
-          pip install -r requirements/test.txt
-          pip install -r requirements/validation.txt
-          pip install boto3-stubs[s3]
+          pip install black flake8 mypy pytest pytest-cov
+          pip install PyYAML jsonschema psutil
+          pip install boto3-stubs[s3] types-requests
 
       - name: Black (style check)
         run: black --check .
