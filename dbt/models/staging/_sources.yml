@@ -4,165 +4,45 @@
 version: 2
 
 sources:
-  - name: raw_sales_data
-    description: "Raw sales data from both streaming and batch ingestion"
+  - name: silver_delta_lake
+    description: "Unified batch and streaming sales data from Delta Lake Silver layer via Snowflake Delta Direct (zero-copy architecture)"
     database: SALES_DW
     schema: RAW
 
-    # Global source configuration
     meta:
       owner: "data-engineering-team"
-      contains_pii: false
+      contains_pii: true
+      technology: "Delta Direct Iceberg Table"
+      data_source: "S3 Delta Lake Silver Layer"
+      refresh_mode: "AUTO_REFRESH"
 
-    # Freshness checks for streaming data
     freshness:
       warn_after: {count: 2, period: hour}
       error_after: {count: 6, period: hour}
 
     tables:
-      # Streaming sales data from Kafka
-      - name: sales_raw
-        description: "Real-time sales events from Kafka streaming pipeline"
+      - name: sales_silver_external
+        description: "Unified sales data from both batch (CSV) and streaming (Kafka) sources, processed through Medallion architecture Bronze to Silver layers. This Iceberg table provides zero-copy access to Delta Lake tables stored in S3."
+
+        meta:
+          medallion_layer: "Silver"
+          storage_format: "Delta Lake"
+          access_method: "Snowflake Delta Direct"
+          auto_refresh: true
+
         columns:
-          - name: order_id
-            description: "Unique identifier for each sales order"
+          - name: row_id
+            description: "Deterministic row identifier generated from source keys to remain stable across batch and streaming loads"
             tests:
               - not_null
               - unique
             meta:
               business_key: true
+          - name: source_row_id
+            description: "Original upstream row identifier from Bronze (retained for lineage); may be null when unavailable"
 
-          - name: store_id
-            description: "Identifier for the store where sale occurred"
-            tests:
-              - not_null
-
-          - name: product_id
-            description: "Unique product identifier"
-            tests:
-              - not_null
-
-          - name: product_name
-            description: "Product name/description"
-
-          - name: category
-            description: "Product category"
-
-          - name: quantity
-            description: "Number of units sold"
-            tests:
-              - not_null
-              - dbt_utils.accepted_range:
-                  min_value: 1
-                  max_value: 1000
-
-          - name: unit_price
-            description: "Price per unit"
-            tests:
-              - not_null
-              - dbt_utils.accepted_range:
-                  min_value: 0.01
-                  max_value: 10000.00
-
-          - name: total_price
-            description: "Total transaction amount"
-            tests:
-              - not_null
-
-          - name: sale_timestamp
-            description: "Timestamp when sale occurred"
-            tests:
-              - not_null
-
-          - name: customer_id
-            description: "Customer identifier"
-
-          - name: payment_method
-            description: "Method of payment used"
-            tests:
-              - accepted_values:
-                  values: ['CREDIT_CARD', 'DEBIT_CARD', 'CASH', 'DIGITAL_WALLET', 'CHECK']
-
-          - name: discount
-            description: "Discount percentage applied"
-            tests:
-              - dbt_utils.accepted_range:
-                  min_value: 0.0
-                  max_value: 1.0
-
-          - name: store_location
-            description: "Store location/address"
-
-          - name: ingestion_timestamp
-            description: "Timestamp when record was ingested into Snowflake"
-            tests:
-              - not_null
-
-          - name: source_system
-            description: "Source system identifier"
-            tests:
-              - accepted_values:
-                  values: ['KAFKA']
-
-          - name: partition_date
-            description: "Date partition for data organization"
-            tests:
-              - not_null
-
-        # Table-level tests
-        tests:
-          - dbt_utils.expression_is_true:
-              expression: "total_price = quantity * unit_price * (1 - discount)"
-              config:
-                severity: warn
-
-        # Freshness check specific to this table
-        freshness:
-          warn_after: {count: 1, period: hour}
-          error_after: {count: 3, period: hour}
-          filter: partition_date = current_date()
-
-      # Batch sales data from Spark ETL
-      - name: sales_batch_raw
-        description: "Historical sales data from CSV batch processing"
-        columns:
           - name: order_id
-            description: "Unique identifier for each sales order"
-            tests:
-              - not_null
-              - unique
-            meta:
-              business_key: true
-
-          - name: store_id
-            description: "Identifier for the store where sale occurred"
-
-          - name: product_id
-            description: "Unique product identifier"
-            tests:
-              - not_null
-
-          - name: product_name
-            description: "Product name/description"
-
-          - name: category
-            description: "Product category"
-
-          - name: quantity
-            description: "Number of units sold"
-            tests:
-              - not_null
-              - dbt_utils.accepted_range:
-                  min_value: 1
-                  max_value: 1000
-
-          - name: unit_price
-            description: "Price per unit"
-            tests:
-              - not_null
-
-          - name: total_price
-            description: "Total transaction amount"
+            description: "Unique order identifier"
             tests:
               - not_null
 
@@ -174,185 +54,135 @@ sources:
           - name: ship_date
             description: "Date when order was shipped"
 
+          - name: ship_mode
+            description: "Shipping mode (Standard, Express, etc.)"
+            tests:
+              - accepted_values:
+                  values: ['Standard Class', 'Second Class', 'First Class', 'Same Day']
+                  config:
+                    severity: warn
+
+          - name: customer_id
+            description: "Unique customer identifier"
+            tests:
+              - not_null
+
+          - name: customer_name
+            description: "Customer full name"
+
+          - name: segment
+            description: "Customer segment classification (Title Case with spaces per Kaggle Superstore)"
+            tests:
+              - accepted_values:
+                  values: ['Consumer', 'Corporate', 'Home Office']
+
+          - name: city
+            description: "Customer city"
+
+          - name: state
+            description: "Customer state or province"
+
+          - name: country
+            description: "Customer country"
+
+          - name: postal_code
+            description: "Customer postal code"
+
+          - name: market
+            description: "Market region (Africa, APAC, Europe, LATAM, US, etc.)"
+
+          - name: region
+            description: "Geographic region within market"
+
+          - name: product_id
+            description: "Unique product identifier"
+            tests:
+              - not_null
+
+          - name: category
+            description: "Product category (Note: Snowflake Iceberg table returns uppercase despite Delta Lake source being Title Case)"
+            tests:
+              - accepted_values:
+                  values: ['FURNITURE', 'OFFICE SUPPLIES', 'TECHNOLOGY', 'SPORTS', 'HOME', 'BOOKS', 'CLOTHING', 'ELECTRONICS']
+
+          - name: sub_category
+            description: "Product sub-category"
+
+          - name: product_name
+            description: "Product name or description"
+
           - name: sales
             description: "Sales amount (revenue)"
             tests:
               - not_null
+              - dbt_utils.accepted_range:
+                  min_value: "{{ var('min_sales') }}"
+                  max_value: "{{ var('max_sales') }}"
+
+          - name: quantity
+            description: "Quantity of items sold"
+            tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  min_value: 1
+                  max_value: "{{ var('max_quantity') }}"
+
+          - name: discount
+            description: "Discount percentage applied (0.0 to 1.0)"
+            tests:
+              - dbt_utils.accepted_range:
+                  min_value: 0.0
+                  max_value: "{{ var('max_discount') }}"
 
           - name: profit
-            description: "Profit amount"
+            description: "Profit amount (can be negative)"
 
-          - name: customer_segment
-            description: "Customer segment classification"
+          - name: shipping_cost
+            description: "Shipping cost for the order"
+            tests:
+              - dbt_utils.accepted_range:
+                  min_value: 0.0
+                  max_value: "{{ var('max_shipping_cost') }}"
+                  config:
+                    severity: warn
+
+          - name: order_priority
+            description: "Order priority level"
             tests:
               - accepted_values:
-                  values: ['CONSUMER', 'CORPORATE', 'HOME_OFFICE']
-
-          - name: region
-            description: "Geographic region"
-
-          - name: country
-            description: "Country code or name"
-
-          - name: state
-            description: "State or province"
-
-          - name: city
-            description: "City name"
-
-          - name: source_file
-            description: "Source CSV file name"
-
-          - name: batch_id
-            description: "Batch processing identifier"
-            tests:
-              - not_null
-
-          - name: ingestion_timestamp
-            description: "Timestamp when record was ingested"
-            tests:
-              - not_null
+                  values: ['Low', 'Medium', 'High', 'Critical']
+                  config:
+                    severity: warn
 
           - name: source_system
-            description: "Source system identifier"
+            description: "Source system identifier (BATCH or KAFKA)"
             tests:
+              - not_null
               - accepted_values:
-                  values: ['BATCH']
+                  values: ['BATCH', 'KAFKA']
 
-          - name: partition_date
-            description: "Date partition for data organization"
+          - name: processing_timestamp
+            description: "Timestamp when record was processed into Silver layer"
             tests:
               - not_null
 
-        # Table-level tests for batch data
         tests:
           - dbt_utils.expression_is_true:
               expression: "ship_date >= order_date or ship_date is null"
               config:
                 severity: error
 
-        # Less frequent freshness check for batch data
-        freshness:
-          warn_after: {count: 24, period: hour}
-          error_after: {count: 48, period: hour}
-
-  # Product reference data
-  - name: product_master
-    description: "Product master data and attributes"
-    database: SALES_DW
-    schema: RAW
-
-    tables:
-      - name: product_raw
-        description: "Product master data"
-        columns:
-          - name: product_id
-            description: "Unique product identifier"
-            tests:
-              - not_null
-            meta:
-              business_key: true
-
-          - name: product_name
-            description: "Product name"
-            tests:
-              - not_null
-
-          - name: category
-            description: "Product category"
-
-          - name: sub_category
-            description: "Product sub-category"
-
-          - name: brand
-            description: "Product brand"
-
-          - name: unit_cost
-            description: "Cost per unit"
-            tests:
-              - dbt_utils.accepted_range:
-                  min_value: 0.01
-                  max_value: 5000.00
-
-          - name: unit_price
-            description: "Selling price per unit"
-            tests:
-              - dbt_utils.accepted_range:
-                  min_value: 0.01
-                  max_value: 10000.00
-
-          - name: effective_date
-            description: "Date when this version became effective"
-            tests:
-              - not_null
-
-          - name: is_active
-            description: "Whether this product is currently active"
-            tests:
-              - not_null
-              - accepted_values:
-                  values: [true, false]
-
-        tests:
           - dbt_utils.expression_is_true:
-              expression: "unit_price >= unit_cost"
+              expression: "quantity > 0"
               config:
-                severity: warn
+                severity: error
 
-  # Store reference data
-  - name: store_master
-    description: "Store master data and location attributes"
-    database: SALES_DW
-    schema: RAW
+          - dbt_utils.expression_is_true:
+              expression: "discount >= 0 and discount <= 1"
+              config:
+                severity: error
 
-    tables:
-      - name: store_raw
-        description: "Store master data"
-        columns:
-          - name: store_id
-            description: "Unique store identifier"
-            tests:
-              - not_null
-            meta:
-              business_key: true
-
-          - name: store_name
-            description: "Store name"
-            tests:
-              - not_null
-
-          - name: store_location
-            description: "Store location/address"
-
-          - name: city
-            description: "City where store is located"
-
-          - name: state
-            description: "State where store is located"
-
-          - name: country
-            description: "Country where store is located"
-
-          - name: region
-            description: "Geographic region"
-
-          - name: store_type
-            description: "Type of store"
-            tests:
-              - accepted_values:
-                  values: ['FLAGSHIP', 'OUTLET', 'KIOSK', 'ONLINE', 'WAREHOUSE']
-
-          - name: opening_date
-            description: "Date when store opened"
-
-          - name: effective_date
-            description: "Date when this version became effective"
-            tests:
-              - not_null
-
-          - name: is_active
-            description: "Whether this store is currently active"
-            tests:
-              - not_null
-              - accepted_values:
-                  values: [true, false]
+        freshness:
+          warn_after: {count: 1, period: hour}
+          error_after: {count: 3, period: hour}
+          filter: processing_timestamp >= current_timestamp() - interval '24 hours'
