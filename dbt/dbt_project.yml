@@ -27,20 +27,14 @@ models:
     # Config indicated by + and applies to all files under models/staging/
     staging:
       +materialized: view
-      +docs:
-        node_color: "lightblue"
 
     # Config for intermediate models
     intermediate:
       +materialized: view
-      +docs:
-        node_color: "orange"
 
     # Config for marts (final models)
     marts:
       +materialized: table
-      +docs:
-        node_color: "green"
 
       # Specific table configurations for performance
       dimensions:
@@ -64,8 +58,8 @@ snapshots:
 # Test configurations
 tests:
   sales_data_pipeline:
-    +store_failures: true
-    +schema: staging_tests
+    +store_failures: false
+    +schema: tests
 
 # Seed configurations
 seeds:
@@ -88,16 +82,17 @@ sources:
     +warn_after: {count: 2, period: hour}
     +error_after: {count: 6, period: hour}
 
-# Documentation
-docs:
-  sales_data_pipeline:
-    +node_color: "purple"
+# Documentation configuration removed - not supported in current dbt version
 
 # Vars - variables that can be referenced in models
 vars:
-  # Date range for historical data loads
-  start_date: '2020-01-01'
+  # Date range based on actual sales data (2011-2014) with buffer for planning
+  # Actual data: 2011-01-01 to 2014-12-31
+  # Buffer: 1 year before, 16 years after for forecasting
+  start_date: '2010-01-01'
   end_date: '2030-12-31'
+  start_year: 2010
+  end_year: 2030
 
   # Business logic variables
   current_date: '{{ run_started_at.strftime("%Y-%m-%d") }}'
@@ -105,6 +100,16 @@ vars:
   # SCD2 configuration
   scd2_start_date: '1900-01-01'
   scd2_end_date: '2099-12-31'
+
+  # Business rules - based on actual data analysis (2011-2014)
+  # Actual ranges: Sales $0.44-$10k, Qty 1-14, Discount 0-85%, Profit -$6.6k to $8.4k
+  max_quantity: 15
+  max_discount: 0.90
+  min_sales: 0.01
+  max_sales: 10000.00
+  min_profit: -7000.00
+  max_profit: 9000.00
+  max_shipping_cost: 100.00
 
   # Data quality thresholds
   data_quality:

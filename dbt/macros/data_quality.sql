@@ -127,7 +127,7 @@
 {% endmacro %}
 
 -- Test for sequential date/timestamp integrity
-{% macro test_sequential_dates(model, date_column, partition_column=null) %}
+{% macro check_sequential_dates(model, date_column, partition_column=null) %}
     with date_gaps as (
         select
             {{ date_column }} as current_date,
