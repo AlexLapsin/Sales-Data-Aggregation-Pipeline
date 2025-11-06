@@ -1,11 +1,9 @@
-# Configuration Validation Dependencies
--r base.txt
+# Configuration validation dependencies
+-r core.txt
 
-# Core validation dependencies
-PyYAML>=6.0
-jsonschema>=4.0.0
+# Validation
+PyYAML>=6.0,<7.0.0
+jsonschema>=4.22.0,<5.0.0
 
 # System utilities
-psutil>=5.0.0
-
-# Development dependencies are in dev.txt
+psutil>=6.0.0,<7.0.0
