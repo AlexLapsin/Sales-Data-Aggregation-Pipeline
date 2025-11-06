@@ -9,101 +9,59 @@
 }}
 
 with source_data as (
-    select * from {{ ref('stg_stores') }}
+    select * from {{ ref('stg_customers_from_sales') }}
 ),
 
--- Get the latest record for each store
-latest_records as (
+-- Transform customer location data to store structure
+transformed_data as (
     select
-        store_id,
-        max(effective_date) as latest_effective_date
-    from source_data
-    group by store_id
-),
+        -- Map customer to store (location-based entity)
+        customer_id as store_id,
+        customer_name as store_name,
+        city as store_location,
+        'RETAIL' as store_type,
 
--- Add row numbers to handle multiple records per day
-ranked_data as (
-    select
-        s.*,
-        l.latest_effective_date,
-        row_number() over (
-            partition by s.store_id, s.effective_date
-            order by s.ingestion_timestamp desc
-        ) as rn
-    from source_data s
-    inner join latest_records l on s.store_id = l.store_id
-),
-
--- Remove duplicates
-deduped_data as (
-    select *
-    from ranked_data
-    where rn = 1
-),
-
--- Create SCD2 logic
-scd2_data as (
-    select
-        store_id,
-        store_name,
-        store_location,
-        store_type,
+        -- Location attributes
         city,
         state,
         country,
         region,
         full_location,
-        opening_date,
-        store_age_category,
-        effective_date,
 
-        -- Calculate expiration date
-        coalesce(
-            lead(effective_date) over (
-                partition by store_id
-                order by effective_date
-            ) - interval '1 day',
-            '2099-12-31'::date
-        ) as expiration_date,
+        -- Lifecycle dates
+        effective_date as opening_date,
 
-        -- Determine if this is the current record
+        -- Store age derived from customer tenure
         case
-            when effective_date = latest_effective_date then true
-            else false
-        end as is_current,
+            when customer_tenure_days >= 365 * 3 then 'LEGACY'
+            when customer_tenure_days >= 365 then 'ESTABLISHED'
+            when customer_tenure_days >= 90 then 'MATURE'
+            else 'NEW'
+        end as store_age_category,
 
-        -- Create version number
-        row_number() over (
-            partition by store_id
-            order by effective_date
-        ) as version_number,
+        -- SCD2 temporal fields (Type 1 semantics since Silver has no history)
+        effective_date,  -- Use first_order_date from source (already mapped)
+        '{{ var('scd2_end_date') }}'::date as expiration_date,
+        true as is_current,
+        1 as version_number,
 
-        -- Track what changed
-        case
-            when lag(store_name) over (partition by store_id order by effective_date) != store_name
-                or lag(store_name) over (partition by store_id order by effective_date) is null
-            then 'NAME_CHANGE'
-            when lag(store_location) over (partition by store_id order by effective_date) != store_location
-                or lag(store_location) over (partition by store_id order by effective_date) is null
-            then 'LOCATION_CHANGE'
-            when lag(store_type) over (partition by store_id order by effective_date) != store_type
-                or lag(store_type) over (partition by store_id order by effective_date) is null
-            then 'TYPE_CHANGE'
-            when lag(region) over (partition by store_id order by effective_date) != region
-                or lag(region) over (partition by store_id order by effective_date) is null
-            then 'REGION_CHANGE'
-            else 'NEW_STORE'
-        end as change_type,
+        -- Change tracking (all records are new since no history)
+        'NEW_STORE' as change_type,
 
-        latest_effective_date,
+        -- Pass through from source
         is_active,
         is_valid_record,
         data_quality_score,
         ingestion_timestamp,
         dbt_created_at,
-        dbt_updated_at
+        dbt_updated_at,
+        effective_date as latest_effective_date
 
-    from deduped_data
+    from source_data
+),
+
+scd2_data as (
+    select * from transformed_data
 ),
 
 final as (
@@ -129,7 +87,7 @@ final as (
 
         -- Calculate days this version was active
         case
-            when expiration_date = '2099-12-31' then null
+            when expiration_date = '{{ var('scd2_end_date') }}' then null
             else datediff('day', effective_date, expiration_date) + 1
         end as days_active,
 
