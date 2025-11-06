@@ -1,0 +1,196 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DOCKERIGNORE - Prevent sensitive files from being copied into Docker images
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CRITICAL SECURITY EXCLUSIONS
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Environment files (contain AWS, Snowflake, DB credentials)
+.env
+.env.*
+.env_*
+.envrc
+**/.env
+**/.env.*
+
+# Snowflake private key files
+config/keys/
+**/config/keys/
+*.p8
+*.pem
+**/rsa_key*
+snowflake_private_key.*
+
+# AWS credentials
+.aws/
+aws-credentials
+credentials
+
+# Google Cloud credentials
+.gcp/
+gcp-credentials.json
+service-account*.json
+
+# Azure credentials
+.azure/
+
+# Databricks configuration
+.databrickscfg
+databricks.cfg
+
+# SSL certificates and keys
+*.key
+*.crt
+*.cert
+*.ca-bundle
+*.p12
+*.pfx
+
+# API keys and secrets
+secrets/
+secret/
+.secrets/
+api_keys/
+tokens/
+passwords.txt
+.passwd
+
+# Terraform state files (contain sensitive information)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfvars
+*.auto.tfvars
+terraform.tfvars
+secret.tfvars
+
+# dbt profiles (may contain credentials)
+**/profiles.yml
+dbt/profiles.yml
+
+# ═════════════════════════════════════════════════════════════════════════════
+# BUILD OPTIMIZATION EXCLUSIONS
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Documentation
+*.md
+!README.md
+docs/
+documentation/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Python virtual environments
+venv/
+.venv/
+ENV/
+env/
+.env/
+env.bak/
+venv.bak/
+
+# Python cache and artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.log
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Airflow runtime
+airflow/logs/
+airflow/postgres/
+airflow/airflow.db
+airflow/airflow.cfg
+
+# dbt artifacts
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/manifest.json
+dbt/catalog.json
+
+# Spark local directories
+spark-warehouse/
+metastore_db/
+derby.log
+checkpoints/
+
+# Kafka logs
+kafka-logs/
+kafka_data/
+
+# Data files (too large for images, should be volume-mounted)
+data/
+datasets/
+*.csv
+*.parquet
+*.avro
+*.orc
+
+# Test files
+tests/
+*_test.py
+test_*.py
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Terraform
+.terraform/
+*.tfplan
+
+# Temporary and cache files
+tmp/
+temp/
+cache/
+*.tmp
+*.bak
+*.old
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Archive files
+*.zip
+*.tar.gz
+*.tgz
+
+# ═════════════════════════════════════════════════════════════════════════════
+# WHITELIST - Files that SHOULD be included
+# ═════════════════════════════════════════════════════════════════════════════
+# (Docker uses ! to negate exclusions)
+
+# Keep these example/template files
+!.env.example
+!profiles.yml.example

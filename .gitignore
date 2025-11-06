@@ -267,9 +267,6 @@ docker-compose.override.yml
 docker-compose.override.yaml
 docker-compose.local.yml
 
-# Docker build context
-.dockerignore
-
 # Docker volumes and data
 volumes/
 
