@@ -1,28 +1,35 @@
 # docker/Dockerfile.spark
 # Docker image for Spark development and testing
 
-FROM bitnami/spark:3.5.0
+FROM apache/spark:3.5.7-python3
 
 USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install additional Python packages
 RUN pip install --upgrade pip
 
 # Copy requirements
 COPY requirements/ /app/requirements/
-RUN pip install -r /app/requirements/spark.txt
+RUN pip install --no-cache-dir -r /app/requirements/spark.txt
+
+# Install Delta Lake 3.2.0 for ACID transactions on Silver layer (compatible with Spark 3.5.x)
+#RUN pip install delta-spark==3.2.0
 
 # Copy source code
 COPY src/ /app/src/
 
 # Create directories including Ivy cache
 RUN mkdir -p /app/data /app/logs /tmp/.ivy2 && \
-    chown -R 1001:1001 /tmp/.ivy2
+    chmod -R 777 /tmp/.ivy2
 
 # Set permissions
-RUN chown -R 1001:1001 /app
+RUN chmod -R 777 /app
 
-USER 1001
+USER root
 
 # Set working directory
 WORKDIR /app

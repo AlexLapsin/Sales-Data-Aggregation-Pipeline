@@ -19,11 +19,12 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY dbt/requirements.txt /app/dbt/requirements.txt
+COPY requirements/core.txt /app/requirements/core.txt
 
-# Install Python dependencies
+# Install Python dependencies including dbt-snowflake
 RUN pip install --upgrade pip \
-    && pip install -r /app/dbt/requirements.txt
+    && pip install -r /app/requirements/core.txt \
+    && pip install dbt-snowflake>=1.7.0
 
 # Copy dbt project
 COPY dbt/ /app/dbt/
