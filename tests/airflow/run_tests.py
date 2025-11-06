@@ -174,8 +174,6 @@ Examples:
     elif args.dag:
         dag_file_map = {
             "cloud_sales": "test_cloud_sales_pipeline_dag.py",
-            "monitoring": "test_pipeline_monitoring_dag.py",
-            "maintenance": "test_maintenance_dag.py",
         }
         cmd = ["pytest", f"tests/airflow/{dag_file_map[args.dag]}"]
 
