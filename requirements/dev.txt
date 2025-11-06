@@ -1,5 +1,5 @@
 # requirements-dev.txt  ← dev/test/lint/type stubs
-black==25.1.0
+black==25.9.0
 flake8==7.3.0
 coverage==7.9.2
 pytest==8.4.1

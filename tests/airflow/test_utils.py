@@ -165,22 +165,6 @@ class MockDockerOperator:
         return "Command executed successfully"
 
 
-class MockDatabricksOperator:
-    """Mock Databricks operator for testing"""
-
-    def __init__(self, **kwargs):
-        self.task_id = kwargs.get("task_id", "test_task")
-        self.job_id = kwargs.get("job_id", "test_job_id")
-        self.notebook_params = kwargs.get("notebook_params", {})
-        self.executed = False
-        self.run_id = 12345
-
-    def execute(self, context):
-        """Mock execute method"""
-        self.executed = True
-        return {"run_id": self.run_id}
-
-
 @pytest.fixture
 def mock_airflow_context():
     """Pytest fixture for mock Airflow context"""

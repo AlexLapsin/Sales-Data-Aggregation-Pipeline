@@ -566,7 +566,6 @@ class TestDataGenerator:
             "Category": "CATEGORY",
             "Quantity": "QUANTITY",
             "unit_price": "UNIT_PRICE",
-            "Sales": "TOTAL_PRICE",
             "Order Date": "ORDER_DATE",
             "Ship Date": "SHIP_DATE",
             "Sales": "SALES",
