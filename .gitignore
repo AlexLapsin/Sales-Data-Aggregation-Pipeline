@@ -1,10 +1,3 @@
-# =============================================================================
-# COMPREHENSIVE .GITIGNORE FOR DATA ENGINEERING PROJECTS
-# =============================================================================
-# This .gitignore covers modern data engineering stacks including:
-# Python, Spark, Kafka, dbt, Airflow, Terraform, Docker, Snowflake, Databricks
-# =============================================================================
-
 # ─────────────────────────────────────────────────────────────────────────────
 # PYTHON DEVELOPMENT
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +68,7 @@ env/
 env.bak/
 venv.bak/
 
-# Environment files (contains sensitive credentials)
+# Environment files
 .env
 .env.*
 .env_*
@@ -92,10 +85,10 @@ Pipfile.lock
 poetry.lock
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DATA ENGINEERING ARTIFACTS
+# ARTIFACTS
 # ─────────────────────────────────────────────────────────────────────────────
-# Data files - Raw data should not be committed to version control
-data/
+# Data files
+#data/
 datasets/
 raw_data/
 processed_data/
@@ -105,15 +98,11 @@ temp/
 temporary/
 cache/
 
-# Keep data structure but ignore contents
-data/**
-!data/.gitkeep
-!data/README.md
-
 # Common data file formats
-*.csv
+#*.csv
 *.tsv
 *.json
+!deploy/**/*.json  # Keep deployment configuration files
 *.jsonl
 *.ndjson
 *.parquet
@@ -134,7 +123,7 @@ data/**
 *.bak
 
 # ─────────────────────────────────────────────────────────────────────────────
-# APACHE SPARK & HADOOP ECOSYSTEM
+# SPARK & HADOOP ECOSYSTEM
 # ─────────────────────────────────────────────────────────────────────────────
 # Spark local directories
 spark-warehouse/
@@ -166,11 +155,12 @@ _committed_*
 _started_*
 
 # ─────────────────────────────────────────────────────────────────────────────
-# APACHE KAFKA & STREAMING
+# KAFKA & STREAMING
 # ─────────────────────────────────────────────────────────────────────────────
 # Kafka logs and state
 kafka-logs/
-kafka_*
+kafka_data/
+kafka_*.log
 *.kafka
 
 # Kafka consumer offsets
@@ -185,7 +175,7 @@ connect-configs/
 connect-status/
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DBT (DATA BUILD TOOL)
+# DBT
 # ─────────────────────────────────────────────────────────────────────────────
 # dbt compilation artifacts
 dbt/target/
@@ -206,7 +196,7 @@ dbt/sources.json
 dbt/partial_parse.msgpack
 
 # ─────────────────────────────────────────────────────────────────────────────
-# APACHE AIRFLOW
+# AIRFLOW
 # ─────────────────────────────────────────────────────────────────────────────
 # Airflow runtime files
 airflow/logs/
@@ -543,6 +533,19 @@ settings_local.py
 # Database migration files (sometimes auto-generated)
 migrations/versions/
 alembic/versions/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROJECT-SPECIFIC CLEANUP PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+
+# User-specific tool configurations
+dbt/.user.yml
+
+# Temporary debugging directories
+docs/archive
+
+# Terraform error states (in addition to standard .tfstate patterns)
+errored.tfstate
 
 # =============================================================================
 # END OF .GITIGNORE
