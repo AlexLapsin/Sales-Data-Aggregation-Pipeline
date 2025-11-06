@@ -1,5 +1,6 @@
 -- models/intermediate/int_date_spine.sql
 -- Generate a complete date spine for the date dimension
+-- Date range configured in dbt_project.yml vars (based on actual data: 2011-2014)
 
 {{
   config(
@@ -10,8 +11,8 @@
 
 {{ dbt_utils.date_spine(
     datepart="day",
-    start_date="cast('2020-01-01' as date)",
-    end_date="cast('2030-12-31' as date)"
+    start_date="cast('" ~ var('start_date') ~ "' as date)",
+    end_date="cast('" ~ var('end_date') ~ "' as date)"
 ) }}
 
 -- Alternative implementation if dbt_utils is not available
