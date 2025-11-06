@@ -31,7 +31,6 @@ import yaml
 # Third-party imports for connectivity testing
 try:
     import boto3
-    import psycopg2
     import snowflake.connector
     from kafka import KafkaProducer, KafkaConsumer
     from databricks_cli.sdk.api_client import ApiClient
@@ -106,8 +105,7 @@ class EnvironmentVariableValidator:
     # Required environment variables by category
     REQUIRED_VARS = {
         "aws": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_DEFAULT_REGION"],
-        "storage": ["S3_BUCKET", "PROCESSED_BUCKET"],
-        "database": ["RDS_HOST", "RDS_USER", "RDS_PASS", "RDS_DB"],
+        "storage": ["RAW_BUCKET", "PROCESSED_BUCKET"],
         "terraform": ["PROJECT_NAME", "ENVIRONMENT", "ALLOWED_CIDR"],
     }
 
@@ -115,7 +113,6 @@ class EnvironmentVariableValidator:
     OPTIONAL_VARS = {
         "aws": ["AWS_PROFILE", "AWS_SESSION_TOKEN"],
         "storage": ["S3_PREFIX"],
-        "database": ["RDS_PORT"],
         "snowflake": [
             "SNOWFLAKE_ACCOUNT",
             "SNOWFLAKE_USER",
@@ -148,11 +145,6 @@ class EnvironmentVariableValidator:
             "ALERT_EMAIL",
         ],
         "terraform": [
-            "DB_INSTANCE_CLASS",
-            "DB_ALLOCATED_STORAGE",
-            "DB_ENGINE_VERSION",
-            "DB_BACKUP_RETENTION_DAYS",
-            "PUBLICLY_ACCESSIBLE",
             "TRUSTED_PRINCIPAL_ARN",
             "ENABLE_MSK",
             "KAFKA_VERSION",
@@ -167,8 +159,7 @@ class EnvironmentVariableValidator:
         "AWS_DEFAULT_REGION": r"^[a-z0-9\-]+$",
         "AWS_ACCESS_KEY_ID": r"^[A-Z0-9]{20}$",
         "AWS_SECRET_ACCESS_KEY": r"^[A-Za-z0-9/+=]{40}$",
-        "S3_BUCKET": r"^[a-z0-9\-\.]+$",
-        "RDS_PORT": r"^\d{4,5}$",
+        "RAW_BUCKET": r"^[a-z0-9\-\.]+$",
         "ALLOWED_CIDR": r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$",
         "SNOWFLAKE_ACCOUNT": r"^[a-zA-Z0-9\-\.]+$",
         "DATABRICKS_HOST": r"^https://[a-zA-Z0-9\-\.]+\.databricks\.com/?$",
@@ -209,14 +200,7 @@ class EnvironmentVariableValidator:
 
     def _get_required_categories(self, environment: Environment) -> List[str]:
         """Get required variable categories by environment"""
-        base_categories = ["aws", "storage", "terraform"]
-
-        if environment == Environment.PROD:
-            return base_categories + ["database"]
-        elif environment == Environment.DEV:
-            return base_categories
-        else:  # staging, test
-            return base_categories + ["database"]
+        return ["aws", "storage", "terraform"]
 
     def _validate_required_var(
         self, var: str, env_vars: Dict[str, str], category: str
@@ -360,7 +344,7 @@ class EnvironmentVariableValidator:
         results = []
 
         # Check S3 bucket naming consistency
-        s3_bucket = env_vars.get("S3_BUCKET", "")
+        s3_bucket = env_vars.get("RAW_BUCKET", "")
         processed_bucket = env_vars.get("PROCESSED_BUCKET", "")
         project_name = env_vars.get("PROJECT_NAME", "")
 
@@ -456,7 +440,7 @@ class ConnectivityTester:
 
             # Test S3 bucket access
             s3_client = session.client("s3")
-            bucket_name = env_vars.get("S3_BUCKET")
+            bucket_name = env_vars.get("RAW_BUCKET")
 
             if bucket_name:
                 try:
@@ -499,96 +483,6 @@ class ConnectivityTester:
                         "Verify AWS credentials are not expired",
                         "Test with: aws sts get-caller-identity",
                     ],
-                )
-            )
-
-        return results
-
-    def test_database_connectivity(
-        self, env_vars: Dict[str, str]
-    ) -> List[ValidationResult]:
-        """Test database connectivity"""
-        results = []
-
-        rds_host = env_vars.get("RDS_HOST")
-        if not rds_host:
-            results.append(
-                ValidationResult(
-                    category="connectivity.database",
-                    check="rds_configuration",
-                    severity=Severity.INFO,
-                    status="SKIPPED",
-                    message="RDS_HOST not configured, skipping database connectivity test",
-                )
-            )
-            return results
-
-        if not HAS_CLOUD_LIBS:
-            results.append(
-                ValidationResult(
-                    category="connectivity.database",
-                    check="database_libraries",
-                    severity=Severity.WARNING,
-                    status="LIBRARIES_MISSING",
-                    message="psycopg2 library not available for database connectivity testing",
-                    suggestions=["Install psycopg2: pip install psycopg2-binary"],
-                )
-            )
-            return results
-
-        try:
-            conn = psycopg2.connect(
-                host=rds_host,
-                port=env_vars.get("RDS_PORT", "5432"),
-                database=env_vars.get("RDS_DB", "sales"),
-                user=env_vars.get("RDS_USER"),
-                password=env_vars.get("RDS_PASS"),
-                connect_timeout=10,
-            )
-            conn.close()
-
-            results.append(
-                ValidationResult(
-                    category="connectivity.database",
-                    check="rds_connection",
-                    severity=Severity.INFO,
-                    status="SUCCESS",
-                    message=f"Successfully connected to RDS database at {rds_host}",
-                )
-            )
-
-        except Exception as e:
-            error_msg = str(e)
-            if "timeout" in error_msg.lower():
-                severity = Severity.ERROR
-                suggestions = [
-                    "Check if RDS_HOST is correct (get from terraform output)",
-                    "Verify security group allows connections from ALLOWED_CIDR",
-                    "Ensure RDS instance is running",
-                ]
-            elif (
-                "authentication" in error_msg.lower() or "password" in error_msg.lower()
-            ):
-                severity = Severity.ERROR
-                suggestions = [
-                    "Check RDS_USER and RDS_PASS credentials",
-                    "Verify database user exists and has proper permissions",
-                ]
-            else:
-                severity = Severity.ERROR
-                suggestions = [
-                    "Check all RDS connection parameters",
-                    "Verify network connectivity to RDS instance",
-                ]
-
-            results.append(
-                ValidationResult(
-                    category="connectivity.database",
-                    check="rds_connection",
-                    severity=severity,
-                    status="FAILED",
-                    message=f"Failed to connect to RDS database: {error_msg}",
-                    suggestions=suggestions,
                 )
             )
 
@@ -784,7 +678,7 @@ class ConfigurationConsistencyChecker:
             # Check if .env variables map to TF_VAR_ equivalents
             env_to_tf_mapping = {
                 "AWS_DEFAULT_REGION": "TF_VAR_AWS_REGION",
-                "S3_BUCKET": "TF_VAR_RAW_BUCKET",
+                "RAW_BUCKET": "TF_VAR_RAW_BUCKET",
                 "PROCESSED_BUCKET": "TF_VAR_PROCESSED_BUCKET",
                 "RDS_DB": "TF_VAR_DB_NAME",
                 "RDS_USER": "TF_VAR_DB_USERNAME",
@@ -1352,11 +1246,6 @@ class SetupDoctor:
             # AWS connectivity
             aws_results = self.connectivity_tester.test_aws_connectivity(env_vars)
             for result in aws_results:
-                report.add_result(result)
-
-            # Database connectivity
-            db_results = self.connectivity_tester.test_database_connectivity(env_vars)
-            for result in db_results:
                 report.add_result(result)
 
             # Snowflake connectivity
