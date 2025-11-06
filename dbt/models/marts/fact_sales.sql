@@ -6,7 +6,7 @@
     materialized='table',
     schema='marts',
     cluster_by=['date_key', 'store_key'],
-    post_hook="create or replace view {{ target.schema }}.v_fact_sales_current as select * from {{ this }} where sale_date >= current_date() - interval '30 days'"
+    post_hook="create or replace view {{ target.schema }}.v_fact_sales_current as select * from {{ this }} where date(sale_timestamp) >= current_date() - interval '30 days'"
   )
 }}
 
@@ -90,7 +90,7 @@ fact_sales as (
         s.day_type,
 
         -- Data quality indicators
-        s.enhanced_quality_score as data_quality_score,
+        s.data_quality_score,
         s.data_source,
 
         -- Audit columns
@@ -172,7 +172,7 @@ final as (
     where product_key is not null
       and store_key is not null
       and date_key is not null
-      and enhanced_quality_score >= 80  -- High quality threshold for fact table
+      and data_quality_score >= 80  -- High quality threshold for fact table
 )
 
 select * from final

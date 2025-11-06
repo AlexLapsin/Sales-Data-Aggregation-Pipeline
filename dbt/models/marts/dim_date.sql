@@ -108,7 +108,7 @@ date_attributes as (
         'Q' || extract(quarter from date_day) as quarter_name,
 
         -- Weekend flag
-        case when extract(dayofweek from date_day) in (0, 1) then true else false end as is_weekend,
+        case when extract(dayofweek from date_day) in (0, 6) then true else false end as is_weekend,
 
         -- Week boundaries
         date_trunc('week', date_day) as week_start_date,

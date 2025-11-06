@@ -24,8 +24,8 @@ models:
         tests:
           - not_null
           - dbt_utils.accepted_range:
-              min_value: 2020
-              max_value: 2030
+              min_value: "{{ var('start_year') }}"
+              max_value: "{{ var('end_year') }}"
 
       - name: quarter
         description: "Quarter number (1-4)"
@@ -162,7 +162,7 @@ models:
         description: "Type/format of store"
         tests:
           - accepted_values:
-              values: ['FLAGSHIP', 'OUTLET', 'KIOSK', 'ONLINE', 'WAREHOUSE']
+              values: ['FLAGSHIP', 'OUTLET', 'KIOSK', 'ONLINE', 'WAREHOUSE', 'RETAIL']
 
       - name: is_current
         description: "Flag indicating current version"
@@ -200,10 +200,10 @@ models:
           - unique
 
       - name: customer_segment
-        description: "Customer segment classification"
+        description: "Customer segment classification (Title Case with spaces per Kaggle Superstore)"
         tests:
           - accepted_values:
-              values: ['CONSUMER', 'CORPORATE', 'HOME_OFFICE', 'UNKNOWN']
+              values: ['Consumer', 'Corporate', 'Home Office', 'UNKNOWN']
 
       - name: customer_value_tier
         description: "Customer value classification"

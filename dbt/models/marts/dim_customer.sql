@@ -13,8 +13,8 @@ with unified_sales as (
     select * from {{ ref('int_sales_unified') }}
 ),
 
--- Extract unique customers with their attributes
-customer_base as (
+-- Get most recent location for each customer (Kimball best practice: consistent grain)
+customer_latest_location as (
     select
         customer_id,
         customer_segment,
@@ -22,35 +22,58 @@ customer_base as (
         country,
         state,
         city,
-
-        -- Aggregated customer behavior
-        min(sale_date) as first_purchase_date,
-        max(sale_date) as last_purchase_date,
-        count(distinct order_id) as total_orders,
-        sum(net_amount) as total_spent,
-        avg(net_amount) as avg_order_value,
-        sum(quantity) as total_items_purchased,
-
-        -- Recency, Frequency, Monetary calculation
-        datediff('day', max(sale_date), current_date()) as days_since_last_purchase,
-        count(distinct order_id) as purchase_frequency,
-        sum(net_amount) as monetary_value,
-
-        -- Data quality
-        max(enhanced_quality_score) as max_data_quality_score,
-        min(ingestion_timestamp) as first_seen,
-        max(ingestion_timestamp) as last_seen
-
+        sale_date,
+        ingestion_timestamp,
+        row_number() over (
+            partition by customer_id
+            order by sale_date desc, ingestion_timestamp desc
+        ) as location_rank
     from unified_sales
     where customer_id is not null
       and customer_id != ''
+),
+
+-- Aggregate metrics at customer grain (ONE row per customer_id)
+customer_base as (
+    select
+        s.customer_id,
+        l.customer_segment,
+        l.region,
+        l.country,
+        l.state,
+        l.city,
+
+        -- Aggregated customer behavior across ALL orders
+        min(s.sale_date) as first_purchase_date,
+        max(s.sale_date) as last_purchase_date,
+        count(distinct s.order_id) as total_orders,
+        sum(s.net_amount) as total_spent,
+        avg(s.net_amount) as avg_order_value,
+        sum(s.quantity) as total_items_purchased,
+
+        -- Recency, Frequency, Monetary calculation
+        datediff('day', max(s.sale_date), current_date()) as days_since_last_purchase,
+        count(distinct s.order_id) as purchase_frequency,
+        sum(s.net_amount) as monetary_value,
+
+        -- Data quality
+        max(s.enhanced_quality_score) as max_data_quality_score,
+        min(s.ingestion_timestamp) as first_seen,
+        max(s.ingestion_timestamp) as last_seen
+
+    from unified_sales s
+    inner join customer_latest_location l
+        on s.customer_id = l.customer_id
+        and l.location_rank = 1
+    where s.customer_id is not null
+      and s.customer_id != ''
     group by
-        customer_id,
-        customer_segment,
-        region,
-        country,
-        state,
-        city
+        s.customer_id,
+        l.customer_segment,
+        l.region,
+        l.country,
+        l.state,
+        l.city
 ),
 
 -- Add customer segmentation and categorization
@@ -110,11 +133,11 @@ customer_enriched as (
             else 'MINIMAL_VALUE'
         end as monetary_segment,
 
-        -- Customer value tier
+        -- Customer value tier (pure monetary segmentation)
         case
-            when monetary_value >= 1000 and purchase_frequency >= 5 and days_since_last_purchase <= 90 then 'VIP'
-            when monetary_value >= 500 and purchase_frequency >= 3 and days_since_last_purchase <= 180 then 'HIGH_VALUE'
-            when monetary_value >= 100 and purchase_frequency >= 2 and days_since_last_purchase <= 365 then 'REGULAR'
+            when monetary_value >= 10000 then 'VIP'
+            when monetary_value >= 5000 then 'HIGH_VALUE'
+            when monetary_value >= 1000 then 'REGULAR'
             else 'OCCASIONAL'
         end as customer_value_tier,
 
