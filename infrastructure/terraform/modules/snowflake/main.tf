@@ -38,79 +38,46 @@ resource "snowflake_schema" "marts" {
   comment  = "Analytics-ready data marts"
 }
 
-# Warehouse for compute
+# Schema for dbt test failures
+resource "snowflake_schema" "tests" {
+  database = snowflake_database.sales_dw.name
+  name     = "TESTS"
+  comment  = "Schema for dbt test failure storage"
+}
+
+# Warehouse for analytics and dbt transformations
+# With Delta Direct zero-copy architecture, all Snowflake operations
+# (dbt transformations, analytics queries) use this single warehouse
 resource "snowflake_warehouse" "compute_wh" {
   name           = "COMPUTE_WH"
-  warehouse_size = "X-SMALL"  # Start small for development
+  warehouse_size = "X-SMALL"  # Sufficient for Delta Direct + dbt transformations
 
   auto_suspend = 300  # 5 minutes
   auto_resume  = true
 
   initially_suspended = true
-  comment = "General compute warehouse for ${var.PROJECT_NAME}"
-}
-
-# Warehouse for ETL operations
-resource "snowflake_warehouse" "etl_wh" {
-  name           = "ETL_WH"
-  warehouse_size = "SMALL"    # Slightly larger for ETL
-
-  auto_suspend = 300  # 5 minutes
-  auto_resume  = true
-
-  initially_suspended = true
-  comment = "Dedicated warehouse for ETL operations"
-}
-
-# Role for Kafka Connect
-resource "snowflake_account_role" "kafka_role" {
-  name    = "KAFKA_CONNECTOR_ROLE"
-  comment = "Role for Kafka Connect to load data"
-}
-
-# Grant permissions to Kafka role
-resource "snowflake_grant_privileges_to_account_role" "kafka_database_usage" {
-  privileges = ["USAGE"]
-  account_role_name = snowflake_account_role.kafka_role.name
-  on_account_object {
-    object_type = "DATABASE"
-    object_name = snowflake_database.sales_dw.name
-  }
-}
-
-resource "snowflake_grant_privileges_to_account_role" "kafka_schema_usage" {
-  for_each = toset([snowflake_schema.raw.name, snowflake_schema.staging.name])
-
-  privileges = ["USAGE"]
-  account_role_name = snowflake_account_role.kafka_role.name
-  on_schema {
-    schema_name = "${snowflake_database.sales_dw.name}.${each.value}"
-  }
-}
-
-resource "snowflake_grant_privileges_to_account_role" "kafka_schema_create_table" {
-  for_each = toset([snowflake_schema.raw.name, snowflake_schema.staging.name])
-
-  privileges = ["CREATE TABLE"]
-  account_role_name = snowflake_account_role.kafka_role.name
-  on_schema {
-    schema_name = "${snowflake_database.sales_dw.name}.${each.value}"
-  }
-}
-
-resource "snowflake_grant_privileges_to_account_role" "kafka_warehouse_usage" {
-  privileges = ["USAGE"]
-  account_role_name = snowflake_account_role.kafka_role.name
-  on_account_object {
-    object_type = "WAREHOUSE"
-    object_name = snowflake_warehouse.etl_wh.name
-  }
+  comment = "Unified warehouse for analytics and dbt transformations with Delta Direct"
 }
 
 # Role for analytics/dbt
 resource "snowflake_account_role" "analytics_role" {
   name    = "ANALYTICS_ROLE"
   comment = "Role for analytics and dbt transformations"
+}
+
+# Grant ANALYTICS_ROLE to the dbt/Airflow user
+resource "snowflake_grant_account_role" "analytics_role_to_user" {
+  role_name = snowflake_account_role.analytics_role.name
+  user_name = var.SNOWFLAKE_USER
+}
+
+# Grant ownership of TESTS schema to ANALYTICS_ROLE
+resource "snowflake_grant_ownership" "tests_schema_ownership" {
+  account_role_name = snowflake_account_role.analytics_role.name
+  on {
+    object_type = "SCHEMA"
+    object_name = "${snowflake_database.sales_dw.name}.${snowflake_schema.tests.name}"
+  }
 }
 
 # Grant permissions to analytics role
@@ -171,5 +138,77 @@ resource "snowflake_grant_privileges_to_account_role" "analytics_warehouse_usage
   on_account_object {
     object_type = "WAREHOUSE"
     object_name = snowflake_warehouse.compute_wh.name
+  }
+}
+
+# Grant permissions on all future tables (excludes TESTS - handled by ownership)
+resource "snowflake_grant_privileges_to_account_role" "analytics_future_tables" {
+  for_each = toset([
+    snowflake_schema.raw.name,
+    snowflake_schema.staging.name,
+    snowflake_schema.marts.name
+  ])
+
+  privileges = ["SELECT", "INSERT", "UPDATE", "DELETE"]
+  account_role_name = snowflake_account_role.analytics_role.name
+  on_schema_object {
+    future {
+      object_type_plural = "TABLES"
+      in_schema          = "${snowflake_database.sales_dw.name}.${each.value}"
+    }
+  }
+}
+
+# Grant permissions on all future views (excludes TESTS - handled by ownership)
+resource "snowflake_grant_privileges_to_account_role" "analytics_future_views" {
+  for_each = toset([
+    snowflake_schema.raw.name,
+    snowflake_schema.staging.name,
+    snowflake_schema.marts.name
+  ])
+
+  privileges = ["SELECT"]
+  account_role_name = snowflake_account_role.analytics_role.name
+  on_schema_object {
+    future {
+      object_type_plural = "VIEWS"
+      in_schema          = "${snowflake_database.sales_dw.name}.${each.value}"
+    }
+  }
+}
+
+# Grant permissions on ALL existing tables (excludes TESTS - handled by ownership)
+resource "snowflake_grant_privileges_to_account_role" "analytics_all_tables" {
+  for_each = toset([
+    snowflake_schema.raw.name,
+    snowflake_schema.staging.name,
+    snowflake_schema.marts.name
+  ])
+
+  privileges = ["SELECT", "INSERT", "UPDATE", "DELETE"]
+  account_role_name = snowflake_account_role.analytics_role.name
+  on_schema_object {
+    all {
+      object_type_plural = "TABLES"
+      in_schema          = "${snowflake_database.sales_dw.name}.${each.value}"
+    }
+  }
+}
+
+# Grant permissions on ALL existing views (excludes TESTS - handled by ownership)
+resource "snowflake_grant_privileges_to_account_role" "analytics_all_views" {
+  for_each = toset([
+    snowflake_schema.raw.name,
+    snowflake_schema.staging.name,
+    snowflake_schema.marts.name
+  ])
+
+  privileges = ["SELECT"]
+  account_role_name = snowflake_account_role.analytics_role.name
+  on_schema_object {
+    all {
+      object_type_plural = "VIEWS"
+      in_schema          = "${snowflake_database.sales_dw.name}.${each.value}"
+    }
   }
 }

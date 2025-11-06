@@ -14,20 +14,14 @@ output "schemas" {
   }
 }
 
-output "warehouses" {
-  description = "Created Snowflake warehouses"
-  value = {
-    compute = snowflake_warehouse.compute_wh.name
-    etl     = snowflake_warehouse.etl_wh.name
-  }
+output "warehouse" {
+  description = "Snowflake warehouse for analytics and dbt (unified with Delta Direct)"
+  value = snowflake_warehouse.compute_wh.name
 }
 
-output "roles" {
-  description = "Created Snowflake roles"
-  value = {
-    kafka_connector = snowflake_account_role.kafka_role.name
-    analytics       = snowflake_account_role.analytics_role.name
-  }
+output "analytics_role" {
+  description = "Snowflake role for analytics and dbt transformations"
+  value = snowflake_account_role.analytics_role.name
 }
 
 output "connection_info" {
@@ -39,4 +33,19 @@ output "connection_info" {
     staging_schema = "${snowflake_database.sales_dw.name}.${snowflake_schema.staging.name}"
     marts_schema = "${snowflake_database.sales_dw.name}.${snowflake_schema.marts.name}"
   }
+}
+
+output "delta_direct_resources" {
+  description = "Delta Direct (Iceberg) resource names for zero-copy architecture"
+  value = {
+    external_volume     = "S3_SILVER_VOLUME"              # Created by Terraform
+    catalog_integration = "DELTA_CATALOG"                 # Created by Python script
+    iceberg_table       = "SALES_SILVER_EXTERNAL"         # Created by Python script
+    full_table_name     = "${snowflake_database.sales_dw.name}.${snowflake_schema.raw.name}.SALES_SILVER_EXTERNAL"
+  }
+}
+
+output "external_table_name" {
+  description = "Fully qualified name of the Iceberg external table (created manually)"
+  value       = "${snowflake_database.sales_dw.name}.${snowflake_schema.raw.name}.SALES_SILVER_EXTERNAL"
 }
