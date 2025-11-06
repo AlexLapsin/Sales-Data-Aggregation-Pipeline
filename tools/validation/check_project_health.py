@@ -476,9 +476,7 @@ class DBTProjectHealthChecker:
                         prefix = (
                             "ERROR: "
                             if severity == "error"
-                            else "WARNING: "
-                            if severity == "warning"
-                            else "INFO: "
+                            else "WARNING: " if severity == "warning" else "INFO: "
                         )
                         report.append(f"  {prefix} {issue.message}")
                         if issue.file_path:
