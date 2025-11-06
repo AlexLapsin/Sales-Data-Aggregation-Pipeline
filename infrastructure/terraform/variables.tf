@@ -22,48 +22,6 @@ variable "PROCESSED_BUCKET" {
   description = "S3 bucket for processed data storage"
 }
 
-# RDS Configuration (Optional - for legacy PostgreSQL support)
-variable "ENABLE_RDS" {
-  type        = bool
-  default     = false
-  description = "Enable RDS PostgreSQL instance (for legacy pipeline support)"
-}
-
-variable "DB_NAME" {
-  type    = string
-  default = "sales_db"
-}
-variable "DB_USERNAME" {
-  type    = string
-  default = "sales_user"
-}
-variable "DB_PASSWORD" {
-  type        = string
-  default     = ""
-  sensitive   = true
-  description = "RDS password (required only if ENABLE_RDS is true)"
-}
-variable "DB_INSTANCE_CLASS" {
-  type    = string
-  default = "db.t3.micro"
-}
-variable "DB_ALLOCATED_STORAGE" {
-  type    = number
-  default = 20
-}
-variable "DB_ENGINE_VERSION" {
-  type    = string
-  default = "13.13"
-}
-variable "DB_BACKUP_RETENTION_DAYS" {
-  type    = number
-  default = 7
-}
-variable "PUBLICLY_ACCESSIBLE" {
-  type    = bool
-  default = false
-}
-
 variable "TRUSTED_PRINCIPAL_ARN" {
   type        = string
   default     = ""
@@ -124,11 +82,36 @@ variable "SNOWFLAKE_PASSWORD" {
   type        = string
   default     = ""
   sensitive   = true
-  description = "Snowflake password for authentication"
+  description = "Snowflake password for authentication (legacy - use keypair instead)"
+}
+
+variable "SNOWFLAKE_PRIVATE_KEY_PATH" {
+  type        = string
+  default     = ""
+  description = "Path to Snowflake RSA private key for keypair authentication"
+}
+
+variable "SNOWFLAKE_KEY_PASSPHRASE" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Passphrase for encrypted Snowflake private key"
 }
 
 variable "SNOWFLAKE_ROLE" {
   type        = string
   default     = "ACCOUNTADMIN"
   description = "Snowflake role for Terraform operations"
+}
+
+variable "SNOWFLAKE_IAM_USER_ARN" {
+  type        = string
+  default     = ""
+  description = "Snowflake IAM user ARN for S3 access (stable per Snowflake account)"
+}
+
+variable "SNOWFLAKE_EXTERNAL_ID" {
+  type        = string
+  default     = ""
+  description = "External ID for Snowflake IAM role trust policy"
 }

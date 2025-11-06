@@ -11,31 +11,16 @@ module "storage" {
   PROCESSED_BUCKET = var.PROCESSED_BUCKET
 }
 
-# Optional RDS PostgreSQL module (for legacy pipeline support)
-# By default, PostgreSQL runs locally via Docker
-# Uncomment and create RDS module if you need managed PostgreSQL
-# module "rds" {
-#   source = "./modules/rds"
-#   count  = var.ENABLE_RDS ? 1 : 0
-#
-#   PROJECT_NAME     = var.PROJECT_NAME
-#   ENVIRONMENT      = var.ENVIRONMENT
-#   DB_NAME          = var.DB_NAME
-#   DB_USERNAME      = var.DB_USERNAME
-#   DB_PASSWORD      = var.DB_PASSWORD
-#   DB_INSTANCE_CLASS = var.DB_INSTANCE_CLASS
-#
-#   VPC_ID    = module.network.vpc_id
-#   SUBNET_IDS = module.network.subnet_ids
-#   SECURITY_GROUP_ID = module.network.rds_sg_id
-# }
-
 module "iam" {
   source                = "./modules/iam"
   PROJECT_NAME          = var.PROJECT_NAME
+  ENVIRONMENT           = var.ENVIRONMENT
+  AWS_REGION            = var.AWS_REGION
   TRUSTED_PRINCIPAL_ARN = var.TRUSTED_PRINCIPAL_ARN
   RAW_BUCKET            = var.RAW_BUCKET
   PROCESSED_BUCKET      = var.PROCESSED_BUCKET
+  SNOWFLAKE_IAM_USER_ARN = var.SNOWFLAKE_IAM_USER_ARN
+  SNOWFLAKE_EXTERNAL_ID  = var.SNOWFLAKE_EXTERNAL_ID
 }
 
 # Optional AWS MSK (Managed Streaming for Kafka) module
@@ -62,6 +47,11 @@ module "snowflake" {
   source = "./modules/snowflake"
   count  = var.ENABLE_SNOWFLAKE_OBJECTS ? 1 : 0
 
-  PROJECT_NAME = var.PROJECT_NAME
-  ENVIRONMENT  = var.ENVIRONMENT
+  PROJECT_NAME              = var.PROJECT_NAME
+  ENVIRONMENT               = var.ENVIRONMENT
+  PROCESSED_BUCKET          = var.PROCESSED_BUCKET
+  snowflake_iam_role_arn    = module.iam.snowflake_role_arn
+  ENABLE_SNOWFLAKE_OBJECTS  = var.ENABLE_SNOWFLAKE_OBJECTS
+  SNOWFLAKE_EXTERNAL_ID     = var.SNOWFLAKE_EXTERNAL_ID
+  SNOWFLAKE_USER            = var.SNOWFLAKE_USER
 }
