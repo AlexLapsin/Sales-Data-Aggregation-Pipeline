@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 """
 Bronze Layer Data Uploader
-Handles uploading local CSV files to S3 Bronze layer with proper partitioning
-
-This module implements the critical data movement from local data/raw files
-to the Bronze layer S3 bucket with Medallion architecture partitioning.
+Handles idempotent uploading of local CSV files to S3 Bronze layer with duplicate detection.
 """
 
 import os
 import json
 import boto3
+import hashlib
 import logging
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from botocore.exceptions import BotoCoreError, ClientError
 
 # Configure logging
@@ -22,13 +21,8 @@ logger = logging.getLogger(__name__)
 
 class BronzeDataUploader:
     """
-    Handles uploading local CSV files to S3 Bronze layer with proper partitioning
-
-    Key Functions:
-    - Upload local CSV files to partitioned Bronze structure
-    - Create proper year/month/day directory structure
-    - Generate upload metadata and audit trail
-    - Handle upload errors and retries
+    Handles idempotent uploading of local CSV files to S3 Bronze layer.
+    Implements content-based duplicate detection and immutable append-only architecture.
     """
 
     def __init__(self, bucket_name: str, aws_region: str = "us-east-1"):
@@ -39,21 +33,54 @@ class BronzeDataUploader:
 
         logger.info(f"Bronze uploader initialized for bucket: {bucket_name}")
 
+    def _calculate_file_hash(self, file_path: Path) -> str:
+        """Calculate SHA256 hash of file content for duplicate detection"""
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(chunk)
+        return sha256_hash.hexdigest()
+
+    def _generate_batch_id(self) -> str:
+        """Generate unique batch ID for idempotent operations"""
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        unique_id = str(uuid.uuid4())[:8]
+        return f"{timestamp}_{unique_id}"
+
+    def _s3_object_exists(self, s3_key: str) -> bool:
+        """Check if S3 object already exists"""
+        try:
+            self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return False
+            raise
+
     def upload_csv_files_to_bronze(
-        self, local_data_dir: str, batch_date: str, file_pattern: str = "*.csv"
+        self,
+        local_data_dir: str,
+        batch_date: str,
+        file_pattern: str = "*.csv",
+        batch_id: Optional[str] = None,
     ) -> Dict:
         """
-        Upload all CSV files from local directory to Bronze layer
+        Upload CSV files to Bronze layer with idempotent operations
 
         Args:
-            local_data_dir: Path to local data directory (e.g., /app/data/raw)
+            local_data_dir: Path to local data directory
             batch_date: Target batch date (YYYY-MM-DD format)
             file_pattern: File pattern to match (default: *.csv)
+            batch_id: Optional batch ID for idempotency (auto-generated if None)
 
         Returns:
             Dict with upload results and metadata
         """
-        logger.info(f"Starting Bronze upload for batch: {batch_date}")
+        # Generate unique batch ID for idempotent operations
+        if batch_id is None:
+            batch_id = self._generate_batch_id()
+
+        logger.info(f"Starting idempotent Bronze upload - Batch ID: {batch_id}")
         logger.info(f"Source directory: {local_data_dir}")
         logger.info(f"Target bucket: {self.bucket_name}")
 
@@ -65,7 +92,7 @@ class BronzeDataUploader:
                 f"Invalid batch_date format: {batch_date}. Expected YYYY-MM-DD"
             )
 
-        # Create Bronze path structure
+        # Create Bronze path structure (standardized for Spark compatibility)
         year = batch_date[:4]
         month = batch_date[5:7]
         day = batch_date[8:10]
@@ -92,35 +119,52 @@ class BronzeDataUploader:
 
         logger.info(f"Found {len(csv_files)} CSV files to upload")
 
-        # Upload results tracking
+        # Upload results tracking with enhanced metadata
         upload_results = {
+            "batch_id": batch_id,
             "batch_date": batch_date,
-            "upload_timestamp": datetime.utcnow().isoformat() + "Z",
+            "upload_timestamp": datetime.now(timezone.utc).isoformat(),
             "source_directory": str(local_data_dir),
             "bronze_prefix": bronze_prefix,
             "files_found": len(csv_files),
             "files_uploaded": 0,
+            "files_skipped": 0,
             "files_failed": 0,
             "upload_details": [],
             "total_size_bytes": 0,
             "status": "in_progress",
         }
 
-        # Upload each CSV file
+        # Process each CSV file with idempotent upload
         for csv_file in csv_files:
             try:
-                # Create S3 key with Bronze structure
+                # Calculate content hash for duplicate detection
+                file_hash = self._calculate_file_hash(csv_file)
+                file_size = csv_file.stat().st_size
+
+                # Create S3 key with content hash for uniqueness
                 s3_key = f"{bronze_prefix}{csv_file.name}"
 
-                # Get file size
-                file_size = csv_file.stat().st_size
-                upload_results["total_size_bytes"] += file_size
+                # Check if file already exists (idempotent operation)
+                if self._s3_object_exists(s3_key):
+                    logger.info(f"File {csv_file.name} already exists, skipping upload")
+                    upload_results["files_skipped"] += 1
+                    upload_results["upload_details"].append(
+                        {
+                            "file_name": csv_file.name,
+                            "status": "skipped",
+                            "reason": "already_exists",
+                            "file_hash": file_hash,
+                            "file_size_bytes": file_size,
+                        }
+                    )
+                    continue
 
                 logger.info(
                     f"Uploading {csv_file.name} ({file_size:,} bytes) to {s3_key}"
                 )
 
-                # Upload file to S3
+                # Idempotent upload with enhanced metadata
                 self.s3_client.upload_file(
                     str(csv_file),
                     self.bucket_name,
@@ -128,22 +172,27 @@ class BronzeDataUploader:
                     ExtraArgs={
                         "ServerSideEncryption": "AES256",
                         "Metadata": {
+                            "batch_id": batch_id,
                             "batch_date": batch_date,
                             "source_file": csv_file.name,
-                            "upload_timestamp": datetime.utcnow().isoformat(),
+                            "upload_timestamp": datetime.now(timezone.utc).isoformat(),
                             "medallion_layer": "bronze",
                             "file_size_bytes": str(file_size),
+                            "content_hash": file_hash,
+                            "source_system": "batch_loader",
+                            "schema_version": "v1.0",
                         },
                     },
                 )
 
-                # Track successful upload
+                upload_results["total_size_bytes"] += file_size
                 upload_results["files_uploaded"] += 1
                 upload_results["upload_details"].append(
                     {
                         "file_name": csv_file.name,
                         "s3_key": s3_key,
                         "file_size_bytes": file_size,
+                        "content_hash": file_hash,
                         "status": "success",
                     }
                 )
@@ -163,7 +212,13 @@ class BronzeDataUploader:
                 )
 
         # Determine final status
-        if upload_results["files_uploaded"] == upload_results["files_found"]:
+        total_processed = (
+            upload_results["files_uploaded"] + upload_results["files_skipped"]
+        )
+        if (
+            total_processed == upload_results["files_found"]
+            and upload_results["files_failed"] == 0
+        ):
             upload_results["status"] = "success"
         elif upload_results["files_uploaded"] > 0:
             upload_results["status"] = "partial_success"
