@@ -1,19 +1,40 @@
-# Documentation
+# Sales Data Aggregation Pipeline - Documentation
 
-This directory contains comprehensive documentation for the Sales Data Aggregation Pipeline.
+Enterprise data pipeline demonstrating Medallion architecture with Apache Airflow, dbt, Apache Kafka, PySpark, Delta Lake, and Snowflake.
 
-## Structure
+## Getting Started
 
-- **architecture/** - System architecture and design documents
-- **deployment/** - Deployment guides and infrastructure setup
-- **development/** - Development guides, testing, and configuration
-- **api/** - API documentation and specifications
-- **troubleshooting/** - Common issues and solutions
+**New to this project?** Follow the [Getting Started Tutorial](tutorial/getting-started.md) - complete walkthrough from zero to running pipeline (60 min).
 
-## Quick Links
+## How-To Guides
 
-- [Architecture Overview](architecture/overview.md)
-- [Getting Started](development/getting-started.md)
-- [Deployment Guide](deployment/README.md)
-- [API Reference](api/README.md)
-- [Troubleshooting](troubleshooting/README.md)
+Practical guides for specific tasks:
+
+- [Deploy Infrastructure](how-to/deploy-infrastructure.md) - Terraform setup for AWS and Snowflake
+- [Configure Environment](how-to/configure-environment.md) - Set up local development environment
+- [Run Batch Pipeline](how-to/run-batch-pipeline.md) - Execute CSV ingestion and processing
+- [Run Streaming Pipeline](how-to/run-streaming-pipeline.md) - Execute real-time Kafka data flow
+- [Troubleshooting](how-to/troubleshooting.md) - Common issues and solutions
+
+## Reference
+
+Technical specifications and detailed information:
+
+- [Architecture](reference/architecture.md) - System design and component overview
+- [Data Dictionary](reference/data-dictionary.md) - Schema definitions and field descriptions
+- [Configuration](reference/configuration.md) - All environment variables and settings
+- [CLI Reference](reference/cli-reference.md) - Command-line tools and options
+
+## Explanation
+
+Concepts, design decisions, and rationale:
+
+- [Medallion Architecture](explanation/medallion-architecture.md) - Why Bronze/Silver/Gold layers
+- [Technology Choices](explanation/technology-choices.md) - Why Airflow, dbt, Snowflake, Delta Lake
+- [Architecture Decision Records](explanation/adr/) - Historical design decisions
+
+---
+
+## Archive
+
+Historical documentation available in [`archive/`](archive/) directory.
