@@ -1,3 +1,6 @@
+# Get current AWS account ID for scoped IAM resources
+data "aws_caller_identity" "current" {}
+
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect  = "Allow"
@@ -30,11 +33,6 @@ resource "aws_iam_policy" "etl_policy" {
           "arn:aws:s3:::${var.PROCESSED_BUCKET}",
           "arn:aws:s3:::${var.PROCESSED_BUCKET}/*"
         ]
-      },
-      {
-        Effect = "Allow",
-        Action = ["rds-db:connect"],
-        Resource = "*"
       }
     ]
   })
@@ -104,7 +102,7 @@ resource "aws_iam_policy" "kafka_connect_policy" {
           "logs:PutLogEvents",
           "logs:DescribeLogStreams"
         ],
-        Resource = "arn:aws:logs:*:*:*"
+        Resource = "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/${var.PROJECT_NAME}/*"
       }
     ]
   })
@@ -181,7 +179,7 @@ resource "aws_iam_policy" "spark_execution_policy" {
           "logs:DescribeLogStreams",
           "logs:DescribeLogGroups"
         ],
-        Resource = "arn:aws:logs:*:*:*"
+        Resource = "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/${var.PROJECT_NAME}/*"
       },
       {
         Effect = "Allow",
