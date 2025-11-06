@@ -1,0 +1,138 @@
+<?xml version='1.0' encoding='utf-8'?>
+<datasource formatted-name='Sales Analytics' inline='true' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <document-format-change-manifest>
+    <_.fcp.ObjectModelEncapsulateLegacy.true...ObjectModelEncapsulateLegacy />
+    <_.fcp.ObjectModelTableType.true...ObjectModelTableType />
+    <_.fcp.SchemaViewerObjectModel.true...SchemaViewerObjectModel />
+    <SheetIdentifierTracking />
+    <WindowsPersistSimpleIdentifiers />
+  </document-format-change-manifest>
+  <connection class='snowflake' dbname='SALES_DW' odbc-connect-string-extras='' one-time-sql='' schema='MARTS' server='' service='' username=''>
+    <connection-customization>
+      <vendor name='snowflake' />
+      <driver name='snowflake' />
+      <customizations>
+        <customization name='CAP_CREATE_TEMP_TABLES' value='yes' />
+        <customization name='CAP_QUERY_BANDING' value='yes' />
+        <customization name='CAP_QUERY_BANDING_GENERIC' value='yes' />
+        <customization name='CAP_QUERY_TOP_N' value='yes' />
+        <customization name='CAP_QUERY_SUBQUERIES' value='yes' />
+        <customization name='CAP_QUERY_SUBQUERIES_WITH_TOP' value='yes' />
+        <customization name='CAP_QUERY_TOPSTYLE_TOP' value='yes' />
+        <customization name='CAP_QUERY_WHERE_FALSE_METADATA_QUERIES' value='yes' />
+        <customization name='CAP_SELECT_INTO' value='yes' />
+        <customization name='CAP_SELECT_TOP_INTO' value='yes' />
+      </customizations>
+    </connection-customization>
+    <_.fcp.ObjectModelEncapsulateLegacy.false...relation name='FACT_SALES' table='[MARTS].[FACT_SALES]' type='table' />
+  </connection>
+  <aliases enabled='yes' />
+  <_.fcp.ObjectModelTableType.true...column caption='Date Key' datatype='integer' name='[date_key]' role='dimension' type='quantitative' />
+  <_.fcp.ObjectModelTableType.true...column caption='Customer Key' datatype='integer' name='[customer_key]' role='dimension' type='quantitative' />
+  <_.fcp.ObjectModelTableType.true...column caption='Product Key' datatype='integer' name='[product_key]' role='dimension' type='quantitative' />
+  <column caption='Sales Amount' datatype='real' name='[net_sales_amount]' role='measure' type='quantitative' />
+  <column caption='Gross Sales' datatype='real' name='[gross_sales_amount]' role='measure' type='quantitative' />
+  <column caption='Discount Amount' datatype='real' name='[discount_amount]' role='measure' type='quantitative' />
+  <column caption='Profit' datatype='real' name='[profit_amount]' role='measure' type='quantitative' />
+  <column caption='Quantity' datatype='integer' name='[quantity]' role='measure' type='quantitative' />
+  <column caption='Unit Price' datatype='real' name='[unit_price]' role='measure' type='quantitative' />
+  <column caption='Shipping Cost' datatype='real' name='[shipping_cost]' role='measure' type='quantitative' />
+
+  <!-- Calculated Fields -->
+  <column caption='Profit Margin %' datatype='real' name='[Profit Margin]' role='measure' type='quantitative'>
+    <calculation class='tableau' formula='[profit_amount] / [net_sales_amount]' />
+  </column>
+
+  <column caption='Average Order Value' datatype='real' name='[AOV]' role='measure' type='quantitative'>
+    <calculation class='tableau' formula='[net_sales_amount] / COUNT([sales_key])' />
+  </column>
+
+  <column caption='Discount Rate %' datatype='real' name='[Discount Rate]' role='measure' type='quantitative'>
+    <calculation class='tableau' formula='[discount_amount] / [gross_sales_amount]' />
+  </column>
+
+  <column caption='Units per Order' datatype='real' name='[Units per Order]' role='measure' type='quantitative'>
+    <calculation class='tableau' formula='SUM([quantity]) / COUNTD([sales_key])' />
+  </column>
+
+  <column caption='Total Orders' datatype='integer' name='[Total Orders]' role='measure' type='quantitative'>
+    <calculation class='tableau' formula='COUNTD([sales_key])' />
+  </column>
+
+  <!-- Relationships to Dimensions -->
+  <folder name='Measures' role='measures'>
+    <folder-item name='[net_sales_amount]' type='field' />
+    <folder-item name='[gross_sales_amount]' type='field' />
+    <folder-item name='[discount_amount]' type='field' />
+    <folder-item name='[profit_amount]' type='field' />
+    <folder-item name='[quantity]' type='field' />
+    <folder-item name='[shipping_cost]' type='field' />
+    <folder-item name='[Profit Margin]' type='field' />
+    <folder-item name='[AOV]' type='field' />
+    <folder-item name='[Discount Rate]' type='field' />
+    <folder-item name='[Units per Order]' type='field' />
+    <folder-item name='[Total Orders]' type='field' />
+  </folder>
+
+  <folder name='Dimensions' role='dimensions'>
+    <folder-item name='[date_key]' type='field' />
+    <folder-item name='[customer_key]' type='field' />
+    <folder-item name='[product_key]' type='field' />
+  </folder>
+
+  <layout _.fcp.SchemaViewerObjectModel.false...dim-percentage='0.5' _.fcp.SchemaViewerObjectModel.false...measure-percentage='0.4' dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+  <semantic-values>
+    <semantic-value key='[Country].[Name]' value='&quot;United States&quot;' />
+  </semantic-values>
+  <date-options start-of-week='monday' />
+  <_.fcp.ObjectModelEncapsulateLegacy.true...object-graph>
+    <objects>
+      <object caption='FACT_SALES' id='FACT_SALES'>
+        <properties context=''>
+          <relation name='FACT_SALES' table='[MARTS].[FACT_SALES]' type='table' />
+        </properties>
+      </object>
+      <object caption='DIM_DATE' id='DIM_DATE'>
+        <properties context=''>
+          <relation name='DIM_DATE' table='[MARTS].[DIM_DATE]' type='table' />
+        </properties>
+      </object>
+      <object caption='DIM_CUSTOMER' id='DIM_CUSTOMER'>
+        <properties context=''>
+          <relation name='DIM_CUSTOMER' table='[MARTS].[DIM_CUSTOMER]' type='table' />
+        </properties>
+      </object>
+      <object caption='DIM_PRODUCT' id='DIM_PRODUCT'>
+        <properties context=''>
+          <relation name='DIM_PRODUCT' table='[MARTS].[DIM_PRODUCT]' type='table' />
+        </properties>
+      </object>
+    </objects>
+    <relationships>
+      <relationship>
+        <expression op='='>
+          <expression op='[date_key]' />
+          <expression op='[DIM_DATE].[date_key]' />
+        </expression>
+        <first-end-point object-id='FACT_SALES' />
+        <second-end-point object-id='DIM_DATE' />
+      </relationship>
+      <relationship>
+        <expression op='='>
+          <expression op='[customer_key]' />
+          <expression op='[DIM_CUSTOMER].[customer_key]' />
+        </expression>
+        <first-end-point object-id='FACT_SALES' />
+        <second-end-point object-id='DIM_CUSTOMER' />
+      </relationship>
+      <relationship>
+        <expression op='='>
+          <expression op='[product_key]' />
+          <expression op='[DIM_PRODUCT].[product_key]' />
+        </expression>
+        <first-end-point object-id='FACT_SALES' />
+        <second-end-point object-id='DIM_PRODUCT' />
+      </relationship>
+    </relationships>
+  </_.fcp.ObjectModelEncapsulateLegacy.true...object-graph>
+</datasource>
