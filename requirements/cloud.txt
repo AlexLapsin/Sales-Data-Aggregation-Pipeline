@@ -1,13 +1,8 @@
 # Cloud-specific dependencies
--r base.txt
+-r core.txt
 
 # Snowflake
-snowflake-connector-python>=3.0.0
-snowflake-sqlalchemy>=1.4.0
+snowflake-sqlalchemy>=1.5.0,<1.6.0
 
 # Databricks
-databricks-connect>=13.0.0
-
-# Additional cloud services
-azure-storage-blob>=12.0.0
-google-cloud-storage>=2.0.0
+databricks-connect>=16.0.0,<17.0.0
