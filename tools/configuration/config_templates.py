@@ -43,7 +43,7 @@ AWS_DEFAULT_REGION="us-east-1"
 # DATA LAKE BUCKETS (required)
 # =============================
 # These must be globally unique
-S3_BUCKET="your-company-sales-raw-dev"
+RAW_BUCKET="your-company-sales-raw-dev"
 PROCESSED_BUCKET="your-company-sales-processed-dev"
 S3_PREFIX=""
 
@@ -54,16 +54,6 @@ PROJECT_NAME="sales-data-pipeline"
 ENVIRONMENT="dev"
 # Your public IP with /32 suffix (get with: curl ifconfig.me)
 ALLOWED_CIDR="YOUR.PUBLIC.IP.ADDR/32"
-
-# =============================
-# DATABASE (optional for dev)
-# =============================
-# Leave empty initially, fill after terraform apply
-RDS_HOST=""
-RDS_PORT="5432"
-RDS_DB="sales"
-RDS_USER="salesuser"
-RDS_PASS="DevPassword123!"
 
 # =============================
 # DOCKER CONFIGURATION (required)
@@ -90,11 +80,6 @@ ALERT_EMAIL="alerts@yourcompany.com"
 # =============================
 # TERRAFORM SETTINGS (for infrastructure)
 # =============================
-DB_INSTANCE_CLASS="db.t3.micro"
-DB_ALLOCATED_STORAGE="20"
-DB_ENGINE_VERSION="15"
-DB_BACKUP_RETENTION_DAYS="7"
-PUBLICLY_ACCESSIBLE="true"
 TRUSTED_PRINCIPAL_ARN="arn:aws:iam::YOUR_ACCOUNT:user/YOUR_USER"
 
 # =============================
@@ -129,11 +114,6 @@ SNOWFLAKE_REGION="us-east-1"
 DATABRICKS_HOST="https://YOUR_WORKSPACE.cloud.databricks.com"
 DATABRICKS_TOKEN="YOUR_DATABRICKS_TOKEN"
 DATABRICKS_CLUSTER_ID="YOUR_CLUSTER_ID"
-
-# =============================
-# RUNTIME ALIASES
-# =============================
-RAW_BUCKET="${S3_BUCKET}"
 """
 
     def generate_prod_template(self) -> str:
@@ -156,7 +136,7 @@ AWS_DEFAULT_REGION="us-east-1"
 # DATA LAKE BUCKETS (required)
 # =============================
 # Use company naming convention
-S3_BUCKET="company-sales-raw-prod"
+RAW_BUCKET="company-sales-raw-prod"
 PROCESSED_BUCKET="company-sales-processed-prod"
 S3_PREFIX=""
 
@@ -167,17 +147,6 @@ PROJECT_NAME="sales-data-pipeline"
 ENVIRONMENT="prod"
 # Restrict to your corporate network
 ALLOWED_CIDR="10.0.0.0/16"
-
-# =============================
-# DATABASE (required for prod)
-# =============================
-# Use RDS endpoint from terraform output
-RDS_HOST="sales-prod.cluster-xyz.us-east-1.rds.amazonaws.com"
-RDS_PORT="5432"
-RDS_DB="sales"
-RDS_USER="salesuser"
-# Use strong password
-RDS_PASS="StrongProductionPassword123!@#"
 
 # =============================
 # DOCKER CONFIGURATION
@@ -203,11 +172,6 @@ ALERT_EMAIL="data-alerts@yourcompany.com"
 # =============================
 # TERRAFORM SETTINGS (production grade)
 # =============================
-DB_INSTANCE_CLASS="db.r5.large"
-DB_ALLOCATED_STORAGE="100"
-DB_ENGINE_VERSION="15"
-DB_BACKUP_RETENTION_DAYS="30"
-PUBLICLY_ACCESSIBLE="false"
 TRUSTED_PRINCIPAL_ARN="arn:aws:iam::PROD_ACCOUNT:role/SalesDataPipelineRole"
 
 # =============================
@@ -244,11 +208,6 @@ DATABRICKS_CLUSTER_ID="0123-456789-abcde123"
 SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
 GRAFANA_PASSWORD="SecureGrafanaPassword123!"
 MONITOR_INTERVAL="300"
-
-# =============================
-# RUNTIME ALIASES
-# =============================
-RAW_BUCKET="${S3_BUCKET}"
 """
 
     def generate_minimal_template(self) -> str:
@@ -264,7 +223,7 @@ AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET_ACCESS_KEY"
 AWS_DEFAULT_REGION="us-east-1"
 
 # S3 Buckets (required - must be globally unique)
-S3_BUCKET="your-unique-bucket-name-raw"
+RAW_BUCKET="your-unique-bucket-name-raw"
 PROCESSED_BUCKET="your-unique-bucket-name-processed"
 
 # Project Settings (required)
@@ -275,15 +234,6 @@ ALLOWED_CIDR="YOUR.IP.ADDRESS/32"
 # Docker Paths (required)
 HOST_DATA_DIR="/full/path/to/your/project/data"
 PIPELINE_IMAGE="sales-pipeline:latest"
-
-# Database (optional - leave empty for S3-only pipeline)
-RDS_HOST=""
-RDS_USER="salesuser"
-RDS_PASS="SecurePassword123!"
-RDS_DB="sales"
-
-# Aliases
-RAW_BUCKET="${S3_BUCKET}"
 """
 
     def generate_docker_env_template(self) -> str:
@@ -316,7 +266,7 @@ SALES_THRESHOLD="10000"
 AWS_ACCESS_KEY_ID="minioadmin"
 AWS_SECRET_ACCESS_KEY="minioadmin"
 AWS_DEFAULT_REGION="us-east-1"
-S3_BUCKET="local-raw-bucket"
+RAW_BUCKET="local-raw-bucket"
 PROCESSED_BUCKET="local-processed-bucket"
 
 # Optional: Use LocalStack for AWS simulation
@@ -381,7 +331,7 @@ We provide several configuration templates for different use cases:
    # Required: Replace template values
    AWS_ACCESS_KEY_ID="your_actual_access_key"
    AWS_SECRET_ACCESS_KEY="your_actual_secret_key"
-   S3_BUCKET="your-unique-bucket-name"
+   RAW_BUCKET="your-unique-bucket-name"
    ALLOWED_CIDR="your.ip.address/32"
    HOST_DATA_DIR="/full/path/to/your/project/data"
    ```
@@ -432,7 +382,7 @@ open http://localhost:8080
 | `AWS_ACCESS_KEY_ID` | AWS access key | `AKIA...` |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret key | `wJal...` |
 | `AWS_DEFAULT_REGION` | AWS region | `us-east-1` |
-| `S3_BUCKET` | Raw data bucket | `company-sales-raw` |
+| `RAW_BUCKET` | Raw data bucket | `company-sales-raw` |
 | `PROCESSED_BUCKET` | Processed data bucket | `company-sales-processed` |
 | `PROJECT_NAME` | Project identifier | `sales-pipeline` |
 | `ENVIRONMENT` | Environment name | `dev`, `staging`, `prod` |
@@ -443,7 +393,6 @@ open http://localhost:8080
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `RDS_HOST` | Database endpoint | (empty for S3-only) |
 | `SNOWFLAKE_ACCOUNT` | Snowflake account | (optional) |
 | `DATABRICKS_HOST` | Databricks workspace | (optional) |
 | `KAFKA_BOOTSTRAP_SERVERS` | Kafka brokers | `localhost:9092` |
@@ -453,7 +402,6 @@ open http://localhost:8080
 
 1. **Network Security**
    - Use specific CIDR blocks, not `0.0.0.0/0`
-   - Set `PUBLICLY_ACCESSIBLE=false` for production databases
    - Use VPN or private networks for production access
 
 2. **Credentials Management**
@@ -478,11 +426,7 @@ open http://localhost:8080
    - Check AWS credentials and permissions
    - Verify IAM policies allow required actions
 
-3. **"Connection timeout" to RDS**
-   - Check security group allows access from `ALLOWED_CIDR`
-   - Verify RDS endpoint is correct
-
-4. **Docker permission errors**
+3. **Docker permission errors**
    - Ensure Docker daemon is running
    - Check file permissions on `HOST_DATA_DIR`
 

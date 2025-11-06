@@ -97,7 +97,6 @@ def guided_setup_check():
         ("Environment File", check_env_file),
         ("AWS Credentials", check_aws_credentials),
         ("S3 Configuration", check_s3_config),
-        ("Database Configuration", check_database_config),
         ("Docker Configuration", check_docker_config),
         ("Terraform Configuration", check_terraform_config),
     ]
@@ -151,7 +150,7 @@ def check_env_file():
         return False
 
     # Check for basic required variables
-    required_vars = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "S3_BUCKET"]
+    required_vars = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "RAW_BUCKET"]
 
     with open(env_file, "r") as f:
         content = f.read()
@@ -204,13 +203,13 @@ def check_s3_config():
     doctor = SetupDoctor()
     env_vars = doctor.load_environment_variables()
 
-    s3_bucket = env_vars.get("S3_BUCKET", "")
+    s3_bucket = env_vars.get("RAW_BUCKET", "")
     processed_bucket = env_vars.get("PROCESSED_BUCKET", "")
 
     issues = []
 
     if not s3_bucket or s3_bucket.startswith("RAW_BUCKET"):
-        issues.append("S3_BUCKET not configured")
+        issues.append("RAW_BUCKET not configured")
 
     if not processed_bucket or processed_bucket.startswith("PROCESSED_BUCKET"):
         issues.append("PROCESSED_BUCKET not configured")
@@ -224,37 +223,6 @@ def check_s3_config():
     print("  SUCCESS: S3 buckets configured")
     print(f"    Raw bucket: {s3_bucket}")
     print(f"    Processed bucket: {processed_bucket}")
-    return True
-
-
-def check_database_config():
-    """Check database configuration"""
-    doctor = SetupDoctor()
-    env_vars = doctor.load_environment_variables()
-
-    rds_host = env_vars.get("RDS_HOST", "")
-    rds_user = env_vars.get("RDS_USER", "")
-    rds_pass = env_vars.get("RDS_PASS", "")
-
-    if not rds_host:
-        print("  WARNING: RDS_HOST not set (OK for initial setup)")
-        print("  → Set after running 'terraform apply'")
-        return True
-
-    issues = []
-
-    if rds_pass == "CHANGE_ME_STRONG_PASSWORD":
-        issues.append("RDS_PASS uses default value")
-
-    if not rds_user:
-        issues.append("RDS_USER not set")
-
-    if issues:
-        for issue in issues:
-            print(f"  ERROR: {issue}")
-        return False
-
-    print("  SUCCESS: Database configuration looks good")
     return True
 
 
