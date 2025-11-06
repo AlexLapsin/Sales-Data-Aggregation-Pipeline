@@ -66,6 +66,9 @@ with dimension_integrity as (
         having count(*) > 1
     ) multiple_current
 
+    /* Commented out: Orphaned dimensions are valid business scenarios
+       (new products, stores not yet opened, seasonal items, etc.)
+
     union all
 
     -- Test 3: Check for orphaned dimension records (dimensions without facts)
@@ -94,6 +97,7 @@ with dimension_integrity as (
           from {{ ref('fact_sales') }}
           where store_key is not null
       )
+    */
 ),
 
 fact_table_integrity as (

@@ -6,7 +6,7 @@ with product_scd2_issues as (
     select
         'PRODUCT' as dimension_type,
         'OVERLAPPING_DATES' as issue_type,
-        product_id as business_key,
+        p1.product_id as business_key,
         count(*) as issue_count
     from {{ ref('int_product_scd2') }} p1
     inner join {{ ref('int_product_scd2') }} p2
@@ -14,7 +14,7 @@ with product_scd2_issues as (
         and p1.product_scd2_key != p2.product_scd2_key
         and p1.effective_date <= p2.expiration_date
         and p2.effective_date <= p1.expiration_date
-    group by product_id
+    group by p1.product_id
 
     union all
 
@@ -37,11 +37,11 @@ with product_scd2_issues as (
     select
         'PRODUCT' as dimension_type,
         'MULTIPLE_CURRENT' as issue_type,
-        product_id as business_key,
+        p.product_id as business_key,
         count(*) as issue_count
-    from {{ ref('int_product_scd2') }}
-    where is_current = true
-    group by product_id
+    from {{ ref('int_product_scd2') }} p
+    where p.is_current = true
+    group by p.product_id
     having count(*) > 1
 ),
 
@@ -50,7 +50,7 @@ store_scd2_issues as (
     select
         'STORE' as dimension_type,
         'OVERLAPPING_DATES' as issue_type,
-        store_id as business_key,
+        s1.store_id as business_key,
         count(*) as issue_count
     from {{ ref('int_store_scd2') }} s1
     inner join {{ ref('int_store_scd2') }} s2
@@ -58,7 +58,7 @@ store_scd2_issues as (
         and s1.store_scd2_key != s2.store_scd2_key
         and s1.effective_date <= s2.expiration_date
         and s2.effective_date <= s1.expiration_date
-    group by store_id
+    group by s1.store_id
 
     union all
 
@@ -79,11 +79,11 @@ store_scd2_issues as (
     select
         'STORE' as dimension_type,
         'MULTIPLE_CURRENT' as issue_type,
-        store_id as business_key,
+        s.store_id as business_key,
         count(*) as issue_count
-    from {{ ref('int_store_scd2') }}
-    where is_current = true
-    group by store_id
+    from {{ ref('int_store_scd2') }} s
+    where s.is_current = true
+    group by s.store_id
     having count(*) > 1
 )
 
