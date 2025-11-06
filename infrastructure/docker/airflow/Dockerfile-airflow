@@ -1,19 +1,48 @@
 FROM apache/airflow:2.10.0
 
-# Switch to root if you need OS libraries here
 USER root
 
-# (Optional) Install OS dependencies if any
-# RUN apt-get update && apt-get install -y <packages> && rm -rf /var/lib/apt/lists/*
-
-# Switch to airflow user to install Python packages
 USER airflow
 
-# Install required providers and dependencies
+# Why Airflow uses inline installation instead of requirements file:
+#
+# 1. DEPENDENCY CONFLICTS: dbt-core has incompatible dependencies with Airflow
+#    - dbt requires protobuf>=5.0,<6.0 vs Airflow providers need different versions
+#    - Multiple packages have conflicting version constraints
+#    - Results in pip ResolutionTooDeep error (exceeded 200,000 resolution attempts)
+#
+# 2. INDUSTRY BEST PRACTICE: Astronomer (Cosmos maintainers) recommend:
+#    - Install Airflow providers normally in Airflow Python environment
+#    - Install dbt in isolated virtual environment to prevent conflicts
+#    - Source: https://github.com/astronomer/cosmos-use-case
+#
+# 3. PATTERN USED:
+#    - Airflow providers + Cosmos + utilities: pip install (Airflow environment)
+#    - dbt + dbt adapters: python venv (isolated environment)
+#    - Cosmos automatically detects and uses the dbt_venv
+
+# Install Airflow provider packages
 RUN pip install --no-cache-dir \
     apache-airflow-providers-docker \
     apache-airflow-providers-snowflake \
     apache-airflow-providers-databricks==7.7.1 \
-    apache-airflow-providers-slack \
-    docker \
+    apache-airflow-providers-slack
+
+# Install Cosmos for dbt orchestration
+RUN pip install --no-cache-dir \
     astronomer-cosmos>=1.3.0
+
+# Install utility packages
+RUN pip install --no-cache-dir \
+    docker \
+    s3fs \
+    pandas \
+    boto3
+
+# Install dbt in isolated virtual environment to avoid dependency conflicts
+# Cosmos will automatically detect and use this venv for dbt operations
+RUN python -m venv dbt_venv && source dbt_venv/bin/activate && \
+    pip install --no-cache-dir \
+        dbt-core>=1.7.0 \
+        dbt-snowflake>=1.7.0 && \
+    deactivate
