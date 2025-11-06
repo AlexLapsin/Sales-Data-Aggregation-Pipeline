@@ -57,37 +57,21 @@ set +a
 
 # --- map .env -> TF_VAR_* (adjust names to match variables.tf exactly) ------
 export TF_VAR_AWS_REGION="${AWS_DEFAULT_REGION:-}"
-export TF_VAR_RAW_BUCKET="${S3_BUCKET:-}"
+export TF_VAR_RAW_BUCKET="${RAW_BUCKET:-}"
 
 # processed bucket is optional
 if [[ -n "${PROCESSED_BUCKET:-}" ]]; then
   export TF_VAR_PROCESSED_BUCKET="${PROCESSED_BUCKET}"
 fi
 
-# RDS variables (optional - only exported if RDS is enabled)
-[[ -n "${ENABLE_RDS:-}" ]]         && export TF_VAR_ENABLE_RDS="${ENABLE_RDS}"
-[[ -n "${RDS_DB:-}" ]]             && export TF_VAR_DB_NAME="${RDS_DB}"
-[[ -n "${RDS_USER:-}" ]]           && export TF_VAR_DB_USERNAME="${RDS_USER}"
-[[ -n "${RDS_PASS:-}" ]]           && export TF_VAR_DB_PASSWORD="${RDS_PASS}"
-[[ -n "${DB_INSTANCE_CLASS:-}" ]]  && export TF_VAR_DB_INSTANCE_CLASS="${DB_INSTANCE_CLASS}"
-[[ -n "${DB_ALLOCATED_STORAGE:-}" ]] && export TF_VAR_DB_ALLOCATED_STORAGE="${DB_ALLOCATED_STORAGE}"
-[[ -n "${DB_ENGINE_VERSION:-}" ]]    && export TF_VAR_DB_ENGINE_VERSION="${DB_ENGINE_VERSION}"
-[[ -n "${DB_BACKUP_RETENTION_DAYS:-}" ]] && export TF_VAR_DB_BACKUP_RETENTION_DAYS="${DB_BACKUP_RETENTION_DAYS}"
-[[ -n "${PUBLICLY_ACCESSIBLE:-}" ]]      && export TF_VAR_PUBLICLY_ACCESSIBLE="${PUBLICLY_ACCESSIBLE}"
-
 export TF_VAR_ALLOWED_CIDR="${ALLOWED_CIDR:-}"
 
 # IAM trust policy principal (optional)
 [[ -n "${TRUSTED_PRINCIPAL_ARN:-}" ]] && export TF_VAR_TRUSTED_PRINCIPAL_ARN="${TRUSTED_PRINCIPAL_ARN}"
 
-# Optional tunables (export only if present in .env & variables.tf expects them)
+# Optional tunables
 [[ -n "${PROJECT_NAME:-}" ]]              && export TF_VAR_PROJECT_NAME="${PROJECT_NAME}"
 [[ -n "${ENVIRONMENT:-}" ]]               && export TF_VAR_ENVIRONMENT="${ENVIRONMENT}"
-[[ -n "${DB_INSTANCE_CLASS:-}" ]]         && export TF_VAR_DB_INSTANCE_CLASS="${DB_INSTANCE_CLASS}"
-[[ -n "${DB_ALLOCATED_STORAGE:-}" ]]      && export TF_VAR_DB_ALLOCATED_STORAGE="${DB_ALLOCATED_STORAGE}"
-[[ -n "${DB_ENGINE_VERSION:-}" ]]         && export TF_VAR_DB_ENGINE_VERSION="${DB_ENGINE_VERSION}"
-[[ -n "${DB_BACKUP_RETENTION_DAYS:-}" ]]  && export TF_VAR_DB_BACKUP_RETENTION_DAYS="${DB_BACKUP_RETENTION_DAYS}"
-[[ -n "${PUBLICLY_ACCESSIBLE:-}" ]]       && export TF_VAR_PUBLICLY_ACCESSIBLE="${PUBLICLY_ACCESSIBLE}"
 
 # Kafka/MSK variables
 [[ -n "${ENABLE_MSK:-}" ]]                 && export TF_VAR_ENABLE_MSK="${ENABLE_MSK}"
@@ -95,13 +79,37 @@ export TF_VAR_ALLOWED_CIDR="${ALLOWED_CIDR:-}"
 [[ -n "${BROKER_INSTANCE_TYPE:-}" ]]       && export TF_VAR_BROKER_INSTANCE_TYPE="${BROKER_INSTANCE_TYPE}"
 [[ -n "${NUMBER_OF_BROKERS:-}" ]]          && export TF_VAR_NUMBER_OF_BROKERS="${NUMBER_OF_BROKERS}"
 
-# Snowflake variables (using OAUTH token authentication)
+# Snowflake variables (using keypair authentication)
 [[ -n "${ENABLE_SNOWFLAKE_OBJECTS:-}" ]]     && export TF_VAR_ENABLE_SNOWFLAKE_OBJECTS="${ENABLE_SNOWFLAKE_OBJECTS}"
 [[ -n "${SNOWFLAKE_ACCOUNT_NAME:-}" ]]       && export TF_VAR_SNOWFLAKE_ACCOUNT_NAME="${SNOWFLAKE_ACCOUNT_NAME}"
 [[ -n "${SNOWFLAKE_ORGANIZATION_NAME:-}" ]]  && export TF_VAR_SNOWFLAKE_ORGANIZATION_NAME="${SNOWFLAKE_ORGANIZATION_NAME}"
 [[ -n "${SNOWFLAKE_USER:-}" ]]               && export TF_VAR_SNOWFLAKE_USER="${SNOWFLAKE_USER}"
-[[ -n "${SNOWFLAKE_PASSWORD:-}" ]]           && export TF_VAR_SNOWFLAKE_PASSWORD="${SNOWFLAKE_PASSWORD}"
+
+# Export Snowflake provider environment variables (workaround for provider v2.x account locator issues)
+# These take precedence over provider config and work more reliably
+[[ -n "${SNOWFLAKE_ACCOUNT:-}" ]]            && export SNOWFLAKE_ACCOUNT="${SNOWFLAKE_ACCOUNT}"
+[[ -n "${SNOWFLAKE_USER:-}" ]]               && export SNOWFLAKE_USER="${SNOWFLAKE_USER}"
+[[ -n "${SNOWFLAKE_ROLE:-}" ]]               && export SNOWFLAKE_ROLE="${SNOWFLAKE_ROLE}"
+
+# Auto-resolve relative paths for SNOWFLAKE_PRIVATE_KEY_PATH
+if [[ -n "${SNOWFLAKE_PRIVATE_KEY_PATH:-}" ]]; then
+  # Check if path is relative (not starting with / or Windows drive letter like C:)
+  if [[ ! "${SNOWFLAKE_PRIVATE_KEY_PATH}" =~ ^(/|[A-Za-z]:) ]]; then
+    # Convert relative to absolute using script directory as base
+    SNOWFLAKE_PRIVATE_KEY_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/${SNOWFLAKE_PRIVATE_KEY_PATH}"
+    echo "INFO: Resolved relative key path to: $SNOWFLAKE_PRIVATE_KEY_PATH"
+  fi
+  export TF_VAR_SNOWFLAKE_PRIVATE_KEY_PATH="${SNOWFLAKE_PRIVATE_KEY_PATH}"
+  # Also export as environment variable for provider
+  export SNOWFLAKE_PRIVATE_KEY_PATH="${SNOWFLAKE_PRIVATE_KEY_PATH}"
+fi
+
+[[ -n "${SNOWFLAKE_KEY_PASSPHRASE:-}" ]]     && export TF_VAR_SNOWFLAKE_KEY_PASSPHRASE="${SNOWFLAKE_KEY_PASSPHRASE}"
 [[ -n "${SNOWFLAKE_ROLE:-}" ]]               && export TF_VAR_SNOWFLAKE_ROLE="${SNOWFLAKE_ROLE}"
+# Export passphrase as environment variable for provider (key-pair auth)
+[[ -n "${SNOWFLAKE_KEY_PASSPHRASE:-}" ]]     && export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="${SNOWFLAKE_KEY_PASSPHRASE}"
+[[ -n "${SNOWFLAKE_IAM_USER_ARN:-}" ]]        && export TF_VAR_SNOWFLAKE_IAM_USER_ARN="${SNOWFLAKE_IAM_USER_ARN}"
+[[ -n "${SNOWFLAKE_EXTERNAL_ID:-}" ]]         && export TF_VAR_SNOWFLAKE_EXTERNAL_ID="${SNOWFLAKE_EXTERNAL_ID}"
 
 # --- protect AWS credential chain -----------------------------------------
 # If you prefer using an AWS profile for Terraform, keep it working:
@@ -116,7 +124,7 @@ fi
 
 # --- sanity checks (don't echo secrets) ------------------------------------
 # Required variables for basic AWS infrastructure
-_req=(AWS_DEFAULT_REGION S3_BUCKET ALLOWED_CIDR)
+_req=(AWS_DEFAULT_REGION RAW_BUCKET ALLOWED_CIDR)
 for v in "${_req[@]}"; do
   [[ -n "${!v:-}" ]] || _die "$v missing in $ENV_FILE"
 done
