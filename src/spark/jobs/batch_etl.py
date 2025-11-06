@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-PySpark ETL Job for Sales Data Batch Processing
+PySpark ETL Job for Sales Data Processing
 
-This job processes CSV files from S3, transforms the data, and loads it into Snowflake.
-Designed to run on Databricks or standalone Spark clusters.
+Processes sales data from multiple sources with automatic schema normalization:
+- CSV files (batch processing)
+- JSON files (streaming via Kafka Connect)
+
+Schema Normalization:
+All column names are normalized to snake_case immediately after reading from
+Bronze layer. This ensures consistent processing regardless of source format
+or column naming convention.
+
+Medallion Architecture Flow:
+Bronze S3 → Spark ETL (normalization + transformation) → Delta Lake Silver → Snowflake Gold
 
 Usage:
-    spark-submit --packages net.snowflake:snowflake-jdbc:3.14.3,net.snowflake:spark-snowflake_2.12:3.1.4 \
-                 sales_batch_job.py --input-path s3a://bucket/path/ --output-table SALES_BATCH_RAW
+    python batch_etl.py --input-path s3://bucket/path/ --batch-id streaming-202510020046
 """
 
 import argparse
@@ -15,9 +23,10 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from pyspark.sql import SparkSession, DataFrame
+from delta.tables import DeltaTable
 from pyspark.sql.functions import (
     col,
     lit,
@@ -28,7 +37,14 @@ from pyspark.sql.functions import (
     upper,
     input_file_name,
     date_format,
+    regexp_extract,
+    regexp_replace,
+    row_number,
+    sha2,
+    concat_ws,
+    coalesce,
 )
+from pyspark.sql.window import Window
 from pyspark.sql.types import (
     StructType,
     StructField,
@@ -92,7 +108,7 @@ class SalesETLJob:
             )
 
     def define_schema(self) -> StructType:
-        """Define the expected schema for sales CSV files"""
+        """Define the expected schema for sales CSV files (24 fields)"""
         return StructType(
             [
                 StructField("Row ID", IntegerType(), True),
@@ -107,6 +123,7 @@ class SalesETLJob:
                 StructField("City", StringType(), True),
                 StructField("State", StringType(), True),
                 StructField("Postal Code", StringType(), True),
+                StructField("Market", StringType(), True),  # ADDED
                 StructField("Region", StringType(), True),
                 StructField("Product ID", StringType(), True),
                 StructField("Category", StringType(), True),
@@ -116,101 +133,278 @@ class SalesETLJob:
                 StructField("Quantity", IntegerType(), True),
                 StructField("Discount", DoubleType(), True),
                 StructField("Profit", DoubleType(), True),
+                StructField("Shipping Cost", DoubleType(), True),  # ADDED
+                StructField("Order Priority", StringType(), True),  # ADDED
             ]
         )
 
-    def read_csv_files(self, input_path: str) -> DataFrame:
-        """Read CSV files from S3 with schema inference and error handling"""
-        self.logger.info(f"Reading CSV files from: {input_path}")
+    def normalize_column_names(self, df: DataFrame) -> DataFrame:
+        """
+        Normalize column names to snake_case for consistent data processing.
 
-        try:
-            # Use schema inference for flexible CSV reading
-            df = (
-                self.spark.read.option("header", "true")
-                .option("inferSchema", "true")
-                .option("timestampFormat", "yyyy-MM-dd HH:mm:ss")
-                .option("dateFormat", "MM/dd/yyyy")
-                .csv(input_path)
-                .withColumn("source_file", input_file_name())
+        This method handles multiple naming conventions from different data sources:
+        - CSV batch files (Title Case with spaces)
+        - JSON streaming data (snake_case)
+        - Future integrations (CamelCase, kebab-case, etc.)
+
+        Transformation Rules:
+        1. CamelCase split: OrderID → Order_ID
+        2. Replace separators: spaces/dashes/dots → underscores
+        3. Remove special characters
+        4. Convert to lowercase
+        5. Clean up multiple/leading/trailing underscores
+
+        Examples:
+            "Order ID" → "order_id" (CSV batch)
+            "order_id" → "order_id" (JSON streaming, unchanged)
+            "OrderID" → "order_id" (CamelCase)
+            "order-id" → "order_id" (kebab-case)
+            "Order@ID#123" → "order_id_123" (special chars)
+
+        Args:
+            df: Input DataFrame with any column naming convention
+
+        Returns:
+            DataFrame with all columns normalized to snake_case
+
+        Note:
+            This normalization happens immediately after reading Bronze data,
+            ensuring all downstream transformations work consistently regardless
+            of the source data format (CSV vs JSON).
+        """
+        import re
+
+        for old_col in df.columns:
+            # Step 1: Handle CamelCase - insert underscore before capital letters
+            new_col = re.sub("([a-z0-9])([A-Z])", r"\1_\2", old_col)
+
+            # Step 2: Replace spaces, dashes, and dots with underscores
+            new_col = re.sub(r"[\s\-\.]+", "_", new_col)
+
+            # Step 3: Remove non-alphanumeric characters except underscores
+            new_col = re.sub(r"[^a-zA-Z0-9_]+", "_", new_col)
+
+            # Step 4: Convert to lowercase
+            new_col = new_col.lower()
+
+            # Step 5: Remove leading/trailing underscores and collapse multiple underscores
+            new_col = re.sub(r"_+", "_", new_col).strip("_")
+
+            # Step 6: Rename if changed
+            if old_col != new_col:
+                self.logger.info(f"Column normalized: '{old_col}' → '{new_col}'")
+                df = df.withColumnRenamed(old_col, new_col)
+
+        return df
+
+    def read_bronze_data(
+        self, bucket_name: str, batch_date: str, input_path_override: str = None
+    ) -> DataFrame:
+        """Read data from Bronze layer S3 bucket with Medallion architecture
+
+        Supports both CSV (batch) and JSON (streaming from Kafka Connect) formats.
+        """
+        # Bronze layer path pattern: sales_data/year=YYYY/month=MM/day=DD/
+        year = batch_date[:4]
+        month = batch_date[5:7]
+        day = batch_date[8:10]
+
+        # Use override path if provided (for streaming with custom paths)
+        if input_path_override:
+            bronze_path = input_path_override
+        else:
+            bronze_path = (
+                f"s3a://{bucket_name}/sales_data/year={year}/month={month}/day={day}/"
             )
 
-            # Log the actual schema found
-            self.logger.info(f"DEBUG: Inferred schema columns: {df.columns}")
-            self.logger.info(f"DEBUG: Schema: {df.schema}")
+        self.logger.info(f"Reading Bronze data from: {bronze_path}")
+        self.logger.info(
+            f"Batch date: {batch_date} (Year: {year}, Month: {month}, Day: {day})"
+        )
+
+        # Detect if this is streaming data (JSON from Kafka Connect) or batch data (CSV)
+        is_streaming = "sales_events" in bronze_path or input_path_override
+
+        try:
+            if is_streaming:
+                # Read JSON files from Kafka Connect (streaming data)
+                self.logger.info("Detected streaming data - reading JSON format")
+                df = (
+                    self.spark.read.option("multiLine", "false")
+                    .json(bronze_path + "*.json")
+                    .withColumn(
+                        "source_file", regexp_extract(input_file_name(), r"([^/]+)$", 1)
+                    )
+                    .withColumn("bronze_ingestion_timestamp", current_timestamp())
+                    .withColumn("batch_id", lit(batch_date))
+                )
+            else:
+                # Read CSV files from Bronze layer (batch data)
+                # IMPORTANT: inferSchema=false to preserve postal codes as STRING
+                # Bug fix: inferSchema=true treats "08701" as 8701.0, losing leading zeros
+                self.logger.info(
+                    "Detected batch data - reading CSV format (all STRING)"
+                )
+                df = (
+                    self.spark.read.option("header", "true")
+                    .option("inferSchema", "false")  # Read all columns as STRING
+                    .option("timestampFormat", "yyyy-MM-dd HH:mm:ss")
+                    .option("dateFormat", "dd-MM-yyyy")  # Updated for Bronze CSV format
+                    .csv(bronze_path + "*.csv")
+                    .withColumn(
+                        "source_file", regexp_extract(input_file_name(), r"([^/]+)$", 1)
+                    )
+                    .withColumn("bronze_ingestion_timestamp", current_timestamp())
+                    .withColumn("batch_id", lit(batch_date))
+                )
+
+            # Log Bronze layer metadata
+            self.logger.info(f"Bronze schema columns: {df.columns}")
+            self.logger.info(f"Bronze schema: {df.schema}")
 
             record_count = df.count()
-            self.logger.info(f"Successfully read {record_count} records from CSV files")
+            self.logger.info(
+                f"Successfully read {record_count} records from Bronze layer"
+            )
+
+            # Normalize column names for consistency across CSV and JSON sources
+            self.logger.info("Normalizing column names to snake_case...")
+            df = self.normalize_column_names(df)
+            self.logger.info(f"Normalized schema: {df.columns}")
 
             if record_count == 0:
-                self.logger.warning("No records found in input files")
+                self.logger.warning("No records found in Bronze layer for this batch")
+                # Fall back to reading from root bucket (existing CSV files) for backward compatibility
+                self.logger.info("Attempting fallback to root bucket CSV files...")
+                return self.read_csv_files_fallback(f"s3a://{bucket_name}/")
 
             return df
 
         except Exception as e:
-            self.logger.error(f"Failed to read CSV files: {str(e)}")
+            self.logger.error(f"Failed to read Bronze layer data: {str(e)}")
+            self.logger.info("Attempting fallback to direct CSV reading...")
+            return self.read_csv_files_fallback(f"s3a://{bucket_name}/")
+
+    def read_csv_files_fallback(self, input_path: str) -> DataFrame:
+        """Fallback method: Read CSV files directly (backward compatibility)"""
+        self.logger.info(f"Fallback: Reading CSV files from: {input_path}")
+
+        try:
+            # Read all columns as STRING to preserve postal codes
+            # Bug fix: inferSchema=true treats "08701" as 8701.0, losing leading zeros
+            df = (
+                self.spark.read.option("header", "true")
+                .option("inferSchema", "false")  # Read all columns as STRING
+                .option("timestampFormat", "yyyy-MM-dd HH:mm:ss")
+                .option("dateFormat", "MM/dd/yyyy")
+                .csv(input_path + "*.csv")
+                .withColumn(
+                    "source_file", regexp_extract(input_file_name(), r"([^/]+)$", 1)
+                )
+                .withColumn("bronze_ingestion_timestamp", current_timestamp())
+            )
+
+            # Log the actual schema found
+            self.logger.info(f"Fallback schema columns: {df.columns}")
+            self.logger.info(f"Fallback schema: {df.schema}")
+
+            record_count = df.count()
+            self.logger.info(
+                f"Fallback: Successfully read {record_count} records from CSV files"
+            )
+
+            if record_count == 0:
+                self.logger.warning("No records found in fallback CSV files")
+
+            return df
+
+        except Exception as e:
+            self.logger.error(f"Fallback CSV reading failed: {str(e)}")
             raise
 
     def clean_and_transform(self, df: DataFrame, batch_id: str) -> DataFrame:
-        """Clean and transform the raw sales data"""
+        """
+        Clean and transform the raw sales data.
+
+        NOTE: This method expects snake_case column names from normalize_column_names().
+        All column references use snake_case (order_id, customer_id, etc.) to work
+        consistently with both CSV batch data and JSON streaming data.
+        """
         self.logger.info("Starting data cleaning and transformation")
+
+        # Get SALES_THRESHOLD from environment
+        SALES_THRESHOLD = float(os.getenv("SALES_THRESHOLD", "10000"))
+        self.logger.info(f"Using SALES_THRESHOLD: ${SALES_THRESHOLD:,.2f}")
+
+        # Preserve upstream identifiers so Silver keeps traceability
+        if "row_id" in df.columns:
+            df = df.withColumnRenamed("row_id", "source_row_id")
+        else:
+            df = df.withColumn("source_row_id", lit(None).cast("string"))
 
         # Data cleaning transformations
         cleaned_df = (
             df
             # Remove rows with null order IDs
-            .filter(col("Order ID").isNotNull())
+            .filter(col("order_id").isNotNull())
             # Clean and standardize text fields
-            .withColumn("Order ID", trim(col("Order ID")))
-            .withColumn("Customer ID", trim(col("Customer ID")))
-            .withColumn("Product ID", trim(col("Product ID")))
-            .withColumn("Category", trim(upper(col("Category"))))
-            .withColumn("Region", trim(upper(col("Region"))))
-            .withColumn("Country", trim(upper(col("Country"))))
-            .withColumn("State", trim(upper(col("State"))))
-            .withColumn("City", trim(col("City")))
+            .withColumn("order_id", trim(col("order_id")))
+            .withColumn("customer_id", trim(col("customer_id")))
+            .withColumn("product_id", trim(col("product_id")))
+            .withColumn("source_row_id", trim(col("source_row_id")))
+            .withColumn(
+                "source_row_id",
+                when(
+                    col("source_row_id").isNull() | (col("source_row_id") == ""),
+                    lit(None).cast("string"),
+                ).otherwise(col("source_row_id")),
+            )
+            # Standardize categorical fields: normalize whitespace and convert to uppercase for consistency
+            .withColumn(
+                "category", upper(regexp_replace(trim(col("category")), r"\s+", " "))
+            )
+            .withColumn(
+                "sub_category",
+                upper(regexp_replace(trim(col("sub_category")), r"\s+", " ")),
+            )
+            .withColumn("segment", regexp_replace(trim(col("segment")), r"\s+", " "))
+            # Standardize geographic fields: preserve original case, normalize whitespace
+            .withColumn("region", regexp_replace(trim(col("region")), r"\s+", " "))
+            .withColumn("country", regexp_replace(trim(col("country")), r"\s+", " "))
+            .withColumn("state", regexp_replace(trim(col("state")), r"\s+", " "))
+            .withColumn("city", regexp_replace(trim(col("city")), r"\s+", " "))
             # Parse dates properly (handle dd-MM-yyyy format found in data)
-            .withColumn("Order Date", to_date(col("Order Date"), "dd-MM-yyyy"))
-            .withColumn("Ship Date", to_date(col("Ship Date"), "dd-MM-yyyy"))
-            # Handle numeric fields - cast to numeric and replace negatives and nulls
+            .withColumn("order_date", to_date(col("order_date"), "dd-MM-yyyy"))
+            .withColumn("ship_date", to_date(col("ship_date"), "dd-MM-yyyy"))
+            # Cast numeric fields to proper types (now that all columns are STRING from inferSchema=false)
+            .withColumn("sales", col("sales").cast("double"))
+            .withColumn("quantity", col("quantity").cast("integer"))
+            .withColumn("discount", col("discount").cast("double"))
+            .withColumn("profit", col("profit").cast("double"))
+            .withColumn("shipping_cost", col("shipping_cost").cast("double"))
+            # Apply SALES_THRESHOLD cap
             .withColumn(
-                "Sales",
-                when(
-                    col("Sales").isNull() | (col("Sales").cast("double") < 0), 0.0
-                ).otherwise(col("Sales").cast("double")),
-            )
-            .withColumn(
-                "Quantity",
-                when(
-                    col("Quantity").isNull() | (col("Quantity").cast("integer") <= 0), 1
-                ).otherwise(col("Quantity").cast("integer")),
-            )
-            .withColumn(
-                "Discount",
-                when(
-                    col("Discount").isNull() | (col("Discount").cast("double") < 0), 0.0
-                )
-                .when(
-                    col("Discount").cast("double") > 1.0,
-                    col("Discount").cast("double") / 100,
-                )  # Convert percentage
-                .otherwise(col("Discount").cast("double")),
-            )
-            .withColumn(
-                "Profit", when(col("Profit").isNull(), 0.0).otherwise(col("Profit"))
+                "sales",
+                when(col("sales") > SALES_THRESHOLD, SALES_THRESHOLD).otherwise(
+                    col("sales")
+                ),
             )
             # Calculate derived fields
             .withColumn(
                 "unit_price",
-                when(col("Quantity") > 0, col("Sales") / col("Quantity")).otherwise(
+                when(col("quantity") > 0, col("sales") / col("quantity")).otherwise(
                     0.0
                 ),
             )
             .withColumn(
                 "profit_margin",
-                when(col("Sales") > 0, col("Profit") / col("Sales")).otherwise(0.0),
+                when(col("sales") > 0, col("profit") / col("sales")).otherwise(0.0),
             )
             # Add metadata fields
             .withColumn("ingestion_timestamp", current_timestamp())
+            .withColumn(
+                "processing_timestamp", current_timestamp()
+            )  # For MERGE deduplication
             .withColumn("source_system", lit("BATCH"))
             .withColumn("batch_id", lit(batch_id))
             .withColumn(
@@ -218,46 +412,269 @@ class SalesETLJob:
             )
         )
 
-        # Filter out invalid records
-        valid_df = cleaned_df.filter(
-            col("Order Date").isNotNull()
-            & col("Sales").isNotNull()
-            & (col("Sales") >= 0)
-            & col("Quantity").isNotNull()
-            & (col("Quantity") > 0)
+        cleaned_df = cleaned_df.withColumn(
+            "row_id",
+            sha2(
+                concat_ws(
+                    "||",
+                    coalesce(col("source_row_id"), lit("")),
+                    coalesce(col("order_id"), lit("")),
+                    coalesce(col("product_id"), lit("")),
+                    coalesce(col("source_system"), lit("")),
+                ),
+                256,
+            ),
         )
 
-        initial_count = df.count()
-        final_count = valid_df.count()
-        filtered_count = initial_count - final_count
+        initial_count = cleaned_df.count()
+        self.logger.info(f"Cleaned {initial_count} records (SALES_THRESHOLD applied)")
 
-        self.logger.info(f"Data cleaning completed:")
-        self.logger.info(f"  - Initial records: {initial_count}")
-        self.logger.info(f"  - Valid records: {final_count}")
-        self.logger.info(f"  - Filtered out: {filtered_count}")
+        return cleaned_df
 
-        return valid_df
+    def validate_geography(self, df: DataFrame) -> DataFrame:
+        """
+        Validate geographic data consistency and flag suspicious records.
+
+        Industry best practice: Silver layer should validate referential integrity.
+        This method adds a flag column to identify records with known invalid
+        city/country combinations without rejecting them outright.
+
+        Known Issues from Research:
+        - São Paulo appearing in Chile (should be Brazil)
+        - Buenos Aires in Chile (should be Argentina)
+        - Lagos in South Africa (should be Nigeria)
+        - Cairo in Nigeria (city exists in both, but context dependent)
+
+        Returns:
+            DataFrame with geo_quality_flag column added
+        """
+        self.logger.info("Validating geographic data consistency...")
+
+        # Known invalid city/country combinations (from our data quality analysis)
+        invalid_geo_combinations = [
+            ("SÃO PAULO", "CHILE"),  # Should be Brazil
+            ("BUENOS AIRES", "CHILE"),  # Should be Argentina
+            ("LAGOS", "SOUTH AFRICA"),  # Should be Nigeria
+            # Add more known invalid combinations as discovered
+        ]
+
+        # Build condition for flagging invalid combinations
+        geo_condition = lit(False)
+        for city, country in invalid_geo_combinations:
+            geo_condition = geo_condition | (
+                (upper(trim(col("city"))) == city)
+                & (upper(trim(col("country"))) == country)
+            )
+
+        # Add geographic quality flag
+        df_with_flag = df.withColumn(
+            "geo_quality_flag",
+            when(geo_condition, "INVALID_CITY_COUNTRY").otherwise("VALID"),
+        )
+
+        # Log geographic quality metrics
+        invalid_count = df_with_flag.filter(col("geo_quality_flag") != "VALID").count()
+        if invalid_count > 0:
+            self.logger.warning(
+                f"Geographic validation: {invalid_count} records with suspicious city/country combinations"
+            )
+            self.logger.warning(
+                "These records are flagged but NOT rejected - manual review recommended"
+            )
+        else:
+            self.logger.info(
+                "Geographic validation: All city/country combinations appear valid"
+            )
+
+        return df_with_flag
+
+    def validate_and_quarantine(self, df: DataFrame) -> Tuple[DataFrame, DataFrame]:
+        """
+        Apply data quality validation rules and split valid/rejected records.
+
+        Validation Rules:
+        1. sales > 0
+        2. quantity > 0
+        3. order_date <= ship_date (logical date sequence)
+        4. No duplicates on (order_id, product_id)
+
+        Returns:
+            Tuple of (valid_df, rejected_df)
+        """
+        self.logger.info("Starting data quality validation")
+
+        # Add rejection reasons column
+        df = df.withColumn("rejection_reason", lit(None).cast("string"))
+
+        # Identify invalid records with reasons
+        # IMPORTANT: Check business keys first - records without order_id/product_id cannot be merged
+        df = df.withColumn(
+            "rejection_reason",
+            when(
+                col("order_id").isNull() | (trim(col("order_id")) == ""),
+                "missing_order_id",
+            )
+            .when(
+                col("product_id").isNull() | (trim(col("product_id")) == ""),
+                "missing_product_id",
+            )
+            .when(col("sales").isNull() | (col("sales") <= 0), "invalid_sales")
+            .when(col("quantity").isNull() | (col("quantity") <= 0), "invalid_quantity")
+            .when(
+                col("order_date").isNull() | col("ship_date").isNull(), "missing_date"
+            )
+            .when(col("order_date") > col("ship_date"), "date_violation")
+            .otherwise(None),
+        )
+
+        # Split into valid and rejected
+        valid_df = df.filter(col("rejection_reason").isNull()).drop("rejection_reason")
+        rejected_df = df.filter(col("rejection_reason").isNotNull())
+
+        # STEP 1: Deduplicate by source_row_id first (handles re-uploads of same source files)
+        # If same CSV uploaded multiple times, upstream row_ids will be identical
+        # Keep record with latest processing_timestamp (most recent upload)
+        valid_count_initial = valid_df.count()
+
+        window_source = Window.partitionBy(
+            coalesce(col("source_row_id"), col("row_id"))
+        ).orderBy(col("processing_timestamp").desc())
+        dedup_stage = valid_df.withColumn("_row_rank", row_number().over(window_source))
+        valid_df = dedup_stage.filter(col("_row_rank") == 1).drop("_row_rank")
+
+        source_duplicates_removed = valid_count_initial - valid_df.count()
+
+        # STEP 2: Deduplicate on business key (order_id, product_id)
+        # Handles true business duplicates (different row_ids, same transaction)
+        valid_count_before = valid_df.count()
+        valid_df = valid_df.dropDuplicates(["order_id", "product_id"])
+        valid_count_after = valid_df.count()
+        business_key_duplicates_removed = valid_count_before - valid_count_after
+
+        duplicates_removed = source_duplicates_removed + business_key_duplicates_removed
+
+        # Fail fast if duplicates still exist after deduplication
+        residual_duplicates = (
+            valid_df.groupBy("row_id").count().filter(col("count") > 1).count()
+        )
+        if residual_duplicates > 0:
+            self.logger.error(
+                f"Detected {residual_duplicates} duplicate row_id values after deduplication."
+            )
+            raise ValueError(
+                "Duplicate row_id values remain after deduplication; aborting Silver write."
+            )
+
+        # Log validation results
+        rejected_count = rejected_df.count()
+        total_records = valid_count_initial + rejected_count
+
+        self.logger.info("=" * 80)
+        self.logger.info("DATA QUALITY VALIDATION SUMMARY")
+        self.logger.info("=" * 80)
+        self.logger.info(f"Total records processed: {total_records:,}")
+        self.logger.info(
+            f"  VALID records (going to Silver): {valid_count_after:,} ({valid_count_after/total_records*100:.1f}%)"
+        )
+        self.logger.info(
+            f"  REJECTED records (going to Quarantine): {rejected_count:,} ({rejected_count/total_records*100:.1f}%)"
+        )
+        self.logger.info(
+            f"  DUPLICATES removed (source_row_id): {source_duplicates_removed:,} (re-uploaded data)"
+        )
+        self.logger.info(
+            f"  DUPLICATES removed (business key): {business_key_duplicates_removed:,} (true duplicates)"
+        )
+        self.logger.info(f"  TOTAL DUPLICATES removed: {duplicates_removed:,}")
+        self.logger.info("=" * 80)
+
+        if rejected_count > 0:
+            self.logger.info("REJECTION BREAKDOWN:")
+            rejection_breakdown = (
+                rejected_df.groupBy("rejection_reason").count().collect()
+            )
+            for row in rejection_breakdown:
+                self.logger.info(
+                    f"  - {row['rejection_reason']}: {row['count']:,} records"
+                )
+            self.logger.info("=" * 80)
+
+        return valid_df, rejected_df
+
+    def write_to_quarantine(self, rejected_df: DataFrame, output_path: str) -> bool:
+        """
+        Write rejected records to quarantine bucket in Delta format.
+
+        Args:
+            rejected_df: DataFrame with rejected records and rejection_reason column
+            output_path: S3 path for quarantine (e.g., s3://bucket/quarantine/)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        rejected_count = rejected_df.count()
+
+        if rejected_count == 0:
+            self.logger.info("No rejected records to quarantine")
+            return True
+
+        self.logger.info(
+            f"Writing {rejected_count} rejected records to quarantine: {output_path}"
+        )
+
+        try:
+            # Write to Delta Lake with append mode (accumulate all rejected records)
+            (
+                rejected_df.write.format("delta")
+                .mode("append")
+                .option("mergeSchema", "true")
+                .save(output_path)
+            )
+
+            self.logger.info("=" * 80)
+            self.logger.info("QUARANTINE WRITE SUCCESSFUL")
+            self.logger.info(f"  Location: {output_path}")
+            self.logger.info(f"  Records written: {rejected_count:,}")
+            self.logger.info(f"  Format: Delta Lake (append mode)")
+            self.logger.info("=" * 80)
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to write to quarantine: {e}")
+            import traceback
+
+            self.logger.error(traceback.format_exc())
+            return False
 
     def map_to_snowflake_schema(self, df: DataFrame) -> DataFrame:
-        """Map DataFrame columns to Snowflake table schema"""
+        """
+        Map DataFrame columns to Snowflake table schema.
+
+        Source columns: snake_case (normalized)
+        Target columns: UPPER_CASE (Snowflake convention)
+        """
         return df.select(
-            col("Order ID").alias("ORDER_ID"),
-            col("Customer ID").alias("STORE_ID"),  # Using Customer ID as Store ID
-            col("Product ID").alias("PRODUCT_ID"),
-            col("Product Name").alias("PRODUCT_NAME"),
-            col("Category").alias("CATEGORY"),
-            col("Quantity").alias("QUANTITY"),
+            col("order_id").alias("ORDER_ID"),
+            col("customer_id").alias("STORE_ID"),  # Using customer_id as Store ID
+            col("product_id").alias("PRODUCT_ID"),
+            col("product_name").alias("PRODUCT_NAME"),
+            col("category").alias("CATEGORY"),
+            col("sub_category").alias("SUB_CATEGORY"),
+            col("quantity").alias("QUANTITY"),
             col("unit_price").alias("UNIT_PRICE"),
-            col("Sales").alias("TOTAL_PRICE"),
-            col("Order Date").alias("ORDER_DATE"),
-            col("Ship Date").alias("SHIP_DATE"),
-            col("Sales").alias("SALES"),
-            col("Profit").alias("PROFIT"),
-            col("Segment").alias("CUSTOMER_SEGMENT"),
-            col("Region").alias("REGION"),
-            col("Country").alias("COUNTRY"),
-            col("State").alias("STATE"),
-            col("City").alias("CITY"),
+            col("sales").alias("TOTAL_PRICE"),
+            col("order_date").alias("ORDER_DATE"),
+            col("ship_date").alias("SHIP_DATE"),
+            col("sales").alias("SALES"),
+            col("profit").alias("PROFIT"),
+            col("shipping_cost").alias("SHIPPING_COST"),
+            col("segment").alias("CUSTOMER_SEGMENT"),
+            col("market").alias("MARKET"),
+            col("region").alias("REGION"),
+            col("country").alias("COUNTRY"),
+            col("state").alias("STATE"),
+            col("city").alias("CITY"),
+            col("order_priority").alias("ORDER_PRIORITY"),
             col("source_file").alias("SOURCE_FILE"),
             col("batch_id").alias("BATCH_ID"),
             col("ingestion_timestamp").alias("INGESTION_TIMESTAMP"),
@@ -380,6 +797,140 @@ class SalesETLJob:
             self.logger.info("Pipeline will continue without Snowflake write")
             return False
 
+    def write_to_delta_silver(
+        self, df: DataFrame, output_path: str, mode: str = "overwrite"
+    ) -> bool:
+        """
+        Write DataFrame to Delta Lake Silver layer using MERGE for unified batch+streaming.
+
+        This method implements Delta Lake MERGE (upsert) pattern to handle:
+        - Batch and streaming data converging into single Silver table
+        - Deduplication based on order_id business key
+        - Late-arriving data updates
+        - Concurrent writes with ACID guarantees
+
+        Args:
+            df: DataFrame to write
+            output_path: S3 path for unified Delta Lake (e.g., s3://bucket/silver/sales/)
+            mode: Deprecated - MERGE logic determines behavior automatically
+
+        Returns:
+            True if successful, False otherwise
+        """
+        record_count = df.count()
+
+        if record_count == 0:
+            self.logger.warning("No records to write to Silver Delta Lake")
+            return True
+
+        self.logger.info("=" * 80)
+        self.logger.info("WRITING TO SILVER LAYER")
+        self.logger.info("=" * 80)
+        self.logger.info(f"  Target location: {output_path}")
+        self.logger.info(f"  Records to write: {record_count:,}")
+        self.logger.info(f"  Format: Delta Lake")
+
+        try:
+            # Check if Delta table exists
+            if DeltaTable.isDeltaTable(self.spark, output_path):
+                self.logger.info("Delta table exists - using MERGE for upsert")
+
+                # Load existing Delta table
+                deltaTable = DeltaTable.forPath(self.spark, output_path)
+
+                target_columns = set(deltaTable.toDF().columns)
+                if "source_row_id" not in target_columns:
+                    self.logger.warning(
+                        "Existing Delta table is missing source_row_id; aligning schema before merge."
+                    )
+                    (
+                        deltaTable.toDF()
+                        .withColumn("source_row_id", lit(None).cast("string"))
+                        .write.format("delta")
+                        .mode("overwrite")
+                        .option("overwriteSchema", "true")
+                        .save(output_path)
+                    )
+                    deltaTable = DeltaTable.forPath(self.spark, output_path)
+
+                # MERGE: Upsert based on composite business key (order_id, product_id)
+                # One order can have multiple products, so we need both keys for correct matching
+                # This handles batch/streaming convergence and deduplication
+                (
+                    deltaTable.alias("target")
+                    .merge(
+                        df.alias("source"),
+                        "target.order_id = source.order_id AND target.product_id = source.product_id",  # Composite business key
+                    )
+                    .whenMatchedUpdate(
+                        # Update existing record only if source is newer
+                        condition="source.processing_timestamp > target.processing_timestamp",
+                        set={
+                            "row_id": "source.row_id",
+                            "source_row_id": "source.source_row_id",
+                            "customer_id": "source.customer_id",
+                            "product_id": "source.product_id",
+                            "product_name": "source.product_name",
+                            "category": "source.category",
+                            "sub_category": "source.sub_category",
+                            "quantity": "source.quantity",
+                            "sales": "source.sales",
+                            "profit": "source.profit",
+                            "discount": "source.discount",
+                            "shipping_cost": "source.shipping_cost",
+                            "order_date": "source.order_date",
+                            "ship_date": "source.ship_date",
+                            "ship_mode": "source.ship_mode",
+                            "segment": "source.segment",
+                            "market": "source.market",
+                            "region": "source.region",
+                            "country": "source.country",
+                            "state": "source.state",
+                            "city": "source.city",
+                            "postal_code": "source.postal_code",
+                            "order_priority": "source.order_priority",
+                            "unit_price": "source.unit_price",
+                            "profit_margin": "source.profit_margin",
+                            "source_system": "source.source_system",
+                            "batch_id": "source.batch_id",
+                            "processing_timestamp": "source.processing_timestamp",
+                            "partition_date": "source.partition_date",
+                        },
+                    )
+                    .whenNotMatchedInsertAll()  # Insert new records
+                    .execute()
+                )
+
+                self.logger.info(
+                    f"SUCCESS: Merged {record_count} records into Delta Silver layer"
+                )
+
+            else:
+                # First write: Create table with overwrite
+                self.logger.info("Creating new Delta table with initial data")
+
+                (
+                    df.write.format("delta")
+                    .mode("overwrite")
+                    .option("mergeSchema", "true")
+                    .option("delta.columnMapping.mode", "name")
+                    .save(output_path)
+                )
+
+                self.logger.info(
+                    f"SUCCESS: Created Delta table with {record_count} records"
+                )
+
+            self.logger.info(f"Location: {output_path}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to write to Delta Silver: {e}")
+            import traceback
+
+            self.logger.error(traceback.format_exc())
+            return False
+
     def run_etl(
         self, input_path: str, output_table: str, batch_id: Optional[str] = None
     ) -> Dict:
@@ -392,10 +943,41 @@ class SalesETLJob:
         start_time = datetime.now()
 
         try:
-            # Step 1: Read CSV files
-            self.logger.info("DEBUG: Starting Step 1 - Reading CSV files")
-            raw_df = self.read_csv_files(input_path)
-            self.logger.info("DEBUG: Step 1 completed - CSV files read successfully")
+            # Step 1: Read data from Bronze layer (Medallion architecture)
+            self.logger.info("DEBUG: Starting Step 1 - Reading data from Bronze layer")
+
+            # Parse input_path to extract bucket name and batch date
+            if input_path.startswith("s3://") or input_path.startswith("s3a://"):
+                # Extract bucket name from S3 path: s3://bucket-name/
+                bucket_name = input_path.split("/")[2]
+            else:
+                # Default bucket name if not provided
+                bucket_name = os.getenv("RAW_BUCKET", "raw-sales-pipeline-976404003846")
+
+            # Use batch_id as date if it follows YYYY-MM-DD format, otherwise use today
+            if (
+                batch_id
+                and len(batch_id) >= 10
+                and batch_id[4] == "-"
+                and batch_id[7] == "-"
+            ):
+                batch_date = batch_id[:10]  # Extract YYYY-MM-DD
+            else:
+                batch_date = datetime.now().strftime("%Y-%m-%d")
+
+            self.logger.info(
+                f"Bronze layer parameters: bucket={bucket_name}, batch_date={batch_date}"
+            )
+
+            # Read from Bronze layer with fallback to direct CSV
+            # Pass input_path for streaming data (contains custom path with sales_events)
+            input_path_override = (
+                input_path.replace("s3://", "s3a://")
+                if "sales_events" in input_path
+                else None
+            )
+            raw_df = self.read_bronze_data(bucket_name, batch_date, input_path_override)
+            self.logger.info("DEBUG: Step 1 completed - Bronze data read successfully")
 
             # Step 2: Clean and transform
             self.logger.info(
@@ -404,46 +986,48 @@ class SalesETLJob:
             cleaned_df = self.clean_and_transform(raw_df, batch_id)
             self.logger.info("DEBUG: Step 2 completed - Data cleaning finished")
 
-            # Step 3: Map to Snowflake schema
-            self.logger.info("DEBUG: Starting Step 3 - Mapping to Snowflake schema")
-            final_df = self.map_to_snowflake_schema(cleaned_df)
-            self.logger.info("DEBUG: Step 3 completed - Schema mapping finished")
+            # Step 2.5: Geographic validation
+            self.logger.info("DEBUG: Starting Step 2.5 - Geographic validation")
+            validated_geo_df = self.validate_geography(cleaned_df)
+            self.logger.info(
+                "DEBUG: Step 2.5 completed - Geographic validation finished"
+            )
 
-            # Step 4: Test Snowflake connection (if enabled)
-            snowflake_connection_ok = False
-            if self.snowflake_enabled:
+            # Step 3: Validate and quarantine
+            self.logger.info("DEBUG: Starting Step 3 - Data quality validation")
+            valid_df, rejected_df = self.validate_and_quarantine(validated_geo_df)
+            self.logger.info("DEBUG: Step 3 completed - Validation finished")
+
+            # Step 4: Write rejected records to quarantine
+            self.logger.info("DEBUG: Starting Step 4 - Writing to quarantine")
+            processed_bucket = os.getenv(
+                "PROCESSED_BUCKET", "processed-sales-pipeline-976404003846"
+            )
+            quarantine_path = f"s3a://{processed_bucket}/quarantine/"
+
+            quarantine_success = self.write_to_quarantine(rejected_df, quarantine_path)
+
+            if quarantine_success:
                 self.logger.info(
-                    "DEBUG: Starting Step 4a - Testing Snowflake connection"
+                    "DEBUG: Step 4 completed - Quarantine write successful"
                 )
-                snowflake_connection_ok = self.test_snowflake_connection()
-                if snowflake_connection_ok:
-                    self.logger.info(
-                        "DEBUG: Step 4a completed - Snowflake connection verified"
-                    )
-                else:
-                    self.logger.warning(
-                        "DEBUG: Step 4a completed - Snowflake connection failed, continuing without Snowflake"
-                    )
-
-            # Step 5: Write to Snowflake (if connection is OK)
-            snowflake_write_success = False
-            if snowflake_connection_ok:
-                self.logger.info("DEBUG: Starting Step 5 - Writing to Snowflake")
-                snowflake_write_success = self.write_to_snowflake(
-                    final_df, output_table
-                )
-                if snowflake_write_success:
-                    self.logger.info(
-                        "DEBUG: Step 5 completed - Snowflake write successful"
-                    )
-                else:
-                    self.logger.warning(
-                        "DEBUG: Step 5 completed - Snowflake write failed"
-                    )
             else:
+                self.logger.error("DEBUG: Step 4 failed - Quarantine write failed")
+
+            # Step 5: Write to Delta Lake Silver layer
+            self.logger.info("DEBUG: Starting Step 5 - Writing to Delta Silver")
+            silver_path = f"s3a://{processed_bucket}/silver/sales/"
+
+            delta_write_success = self.write_to_delta_silver(
+                valid_df, silver_path, mode="overwrite"
+            )
+
+            if delta_write_success:
                 self.logger.info(
-                    "DEBUG: Skipping Step 5 - Snowflake write (connection unavailable)"
+                    "DEBUG: Step 5 completed - Delta Silver write successful"
                 )
+            else:
+                self.logger.error("DEBUG: Step 5 failed - Delta Silver write failed")
 
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
@@ -451,13 +1035,15 @@ class SalesETLJob:
             result = {
                 "status": "success",
                 "batch_id": batch_id,
-                "records_processed": final_df.count(),
+                "records_processed": valid_df.count(),
+                "records_rejected": rejected_df.count(),
                 "duration_seconds": duration,
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
-                "snowflake_enabled": self.snowflake_enabled,
-                "snowflake_connection_ok": snowflake_connection_ok,
-                "snowflake_write_success": snowflake_write_success,
+                "delta_write_success": delta_write_success,
+                "quarantine_write_success": quarantine_success,
+                "silver_path": silver_path if delta_write_success else None,
+                "quarantine_path": quarantine_path if quarantine_success else None,
             }
 
             self.logger.info(f"ETL job completed successfully: {result}")
@@ -522,7 +1108,13 @@ def create_spark_session(app_name: str = "SalesETL") -> SparkSession:
             "net.snowflake:snowflake-jdbc:3.19.0,"
             "net.snowflake:spark-snowflake_2.12:3.1.4,"  # FIXED: Using latest stable version compatible with Spark 3.5.0
             "org.apache.hadoop:hadoop-aws:3.3.4,"
-            "com.amazonaws:aws-java-sdk-bundle:1.12.367",
+            "com.amazonaws:aws-java-sdk-bundle:1.12.367,"
+            "io.delta:delta-spark_2.12:3.2.0",  # Delta Lake 3.2.0 for Spark 3.5.x ACID transactions
+        )
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config(
+            "spark.sql.catalog.spark_catalog",
+            "org.apache.spark.sql.delta.catalog.DeltaCatalog",
         )
         .getOrCreate()
     )
