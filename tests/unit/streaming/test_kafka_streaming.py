@@ -503,6 +503,7 @@ def kafka_tester():
 
 
 # Test cases
+@pytest.mark.requires_infrastructure
 def test_kafka_producer_functionality(kafka_tester):
     """Test Kafka producer can send messages successfully"""
     results = kafka_tester.test_producer_functionality()
@@ -513,6 +514,7 @@ def test_kafka_producer_functionality(kafka_tester):
     ), f"Expected 10 messages sent, got {results['messages_sent']}"
 
 
+@pytest.mark.requires_infrastructure
 def test_kafka_consumer_functionality(kafka_tester):
     """Test Kafka consumer can receive messages successfully"""
     results = kafka_tester.test_consumer_functionality()
@@ -523,6 +525,7 @@ def test_kafka_consumer_functionality(kafka_tester):
     ), f"Expected 5 messages consumed, got {results['messages_consumed']}"
 
 
+@pytest.mark.requires_infrastructure
 def test_kafka_partitioning_behavior(kafka_tester):
     """Test Kafka message partitioning works correctly"""
     results = kafka_tester.test_partitioning_behavior()
@@ -533,6 +536,7 @@ def test_kafka_partitioning_behavior(kafka_tester):
     ), "Messages should be distributed across multiple partitions"
 
 
+@pytest.mark.requires_infrastructure
 def test_kafka_consumer_group_behavior(kafka_tester):
     """Test Kafka consumer group load balancing"""
     results = kafka_tester.test_consumer_group_behavior()
@@ -547,6 +551,7 @@ def test_kafka_consumer_group_behavior(kafka_tester):
     assert total_messages == 30, f"Expected 30 total messages, got {total_messages}"
 
 
+@pytest.mark.requires_infrastructure
 def test_kafka_connect_availability(kafka_tester):
     """Test Kafka Connect is available and has required connectors"""
     results = kafka_tester.test_kafka_connect_health()
@@ -558,6 +563,7 @@ def test_kafka_connect_availability(kafka_tester):
         pytest.skip("Kafka Connect not available - this is expected in basic setup")
 
 
+@pytest.mark.requires_infrastructure
 def test_kafka_message_serialization(kafka_tester):
     """Test different message serialization formats work correctly"""
     results = kafka_tester.test_message_serialization()
@@ -568,6 +574,7 @@ def test_kafka_message_serialization(kafka_tester):
     assert "bytes" in results["formats_tested"], "Bytes serialization not tested"
 
 
+@pytest.mark.requires_infrastructure
 def test_sales_events_topic_exists():
     """Test that the main sales_events topic exists"""
     admin_client = KafkaAdminClient(
@@ -587,6 +594,7 @@ def test_sales_events_topic_exists():
         admin_client.close()
 
 
+@pytest.mark.requires_infrastructure
 def test_kafka_cluster_metadata():
     """Test Kafka cluster metadata and configuration"""
     admin_client = KafkaAdminClient(
