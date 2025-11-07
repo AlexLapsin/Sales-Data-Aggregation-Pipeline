@@ -418,7 +418,8 @@ class TestDAGImport:
             "AWS_SECRET_ACCESS_KEY",
             "SNOWFLAKE_ACCOUNT",
             "SNOWFLAKE_USER",
-            "SNOWFLAKE_PASSWORD",
+            "SNOWFLAKE_PRIVATE_KEY_PATH",
+            "SNOWFLAKE_KEY_PASSPHRASE",
             "DATABRICKS_HOST",
             "DATABRICKS_TOKEN",
         ]

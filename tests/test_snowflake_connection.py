@@ -13,7 +13,8 @@ Usage:
 Environment Variables Required:
     SNOWFLAKE_ACCOUNT: Snowflake account identifier
     SNOWFLAKE_USER: Snowflake username
-    SNOWFLAKE_PASSWORD: Snowflake user password
+    SNOWFLAKE_PRIVATE_KEY_PATH: Path to Snowflake private key file
+    SNOWFLAKE_KEY_PASSPHRASE: Passphrase for private key (optional)
     SNOWFLAKE_ROLE: Snowflake role (optional, defaults to ACCOUNTADMIN)
     SNOWFLAKE_WAREHOUSE: Snowflake warehouse (optional, defaults to COMPUTE_WH)
     SNOWFLAKE_DATABASE: Snowflake database (optional, defaults to SALES_DW)
@@ -43,6 +44,10 @@ try:
         ProgrammingError,
         InterfaceError,
         OperationalError,
+    )
+    from tests.helpers import (
+        get_private_key_bytes,
+        check_snowflake_credentials_available,
     )
 
     SNOWFLAKE_AVAILABLE = True
@@ -96,7 +101,7 @@ class SnowflakeConnectionTester:
         config = {
             "account": account,
             "user": os.getenv("SNOWFLAKE_USER"),
-            "password": os.getenv("SNOWFLAKE_PASSWORD"),
+            "private_key": get_private_key_bytes(),
             "role": os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
             "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE", "COMPUTE_WH"),
             "database": os.getenv("SNOWFLAKE_DATABASE", "SALES_DW"),
@@ -105,8 +110,8 @@ class SnowflakeConnectionTester:
         }
 
         # Validate required fields
-        required_fields = ["account", "user", "password"]
-        missing_fields = [field for field in required_fields if not config[field]]
+        required_fields = ["account", "user", "private_key"]
+        missing_fields = [field for field in required_fields if not config.get(field)]
 
         if missing_fields:
             raise ValueError(
@@ -115,10 +120,9 @@ class SnowflakeConnectionTester:
 
         return config
 
-    def _validate_password(self) -> bool:
-        """Validate the Snowflake password"""
-        password = self.config.get("password")
-        return bool(password and len(password) > 0 and not password.startswith("your_"))
+    def _validate_credentials(self) -> bool:
+        """Validate Snowflake credentials are available"""
+        return check_snowflake_credentials_available()
 
     @contextmanager
     def get_connection(self):

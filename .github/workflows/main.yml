@@ -13,18 +13,21 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements/core.txt
-          pip install black flake8 mypy pytest pytest-cov
+          pip install -r requirements/dev.txt
+          pip install -r requirements/spark.txt
+          pip install -r requirements/test.txt
           pip install PyYAML jsonschema psutil
           pip install boto3-stubs[s3] types-requests
 
@@ -36,13 +39,26 @@ jobs:
 
       - name: MyPy (static types)
         run: |
-          mypy src/bronze --ignore-missing-imports || true
-          mypy src/spark/jobs --ignore-missing-imports || true
-          mypy src/streaming --ignore-missing-imports || true
+          mypy src/bronze --ignore-missing-imports
+          mypy src/spark/jobs --ignore-missing-imports
+          mypy src/streaming --ignore-missing-imports
+        continue-on-error: true
 
       - name: Run unit tests
         run: |
-          pytest tests/bronze/ tests/silver/ -v --maxfail=3 --disable-warnings || true
+          pytest tests/unit/ -v --tb=short --cov=src --cov-report=term-missing --cov-report=xml -m "not requires_credentials"
+
+      - name: Run Bronze layer tests
+        run: |
+          pytest tests/bronze/ -v --tb=short -m "not requires_credentials"
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
 
       - name: Run validation scripts
         run: |
@@ -57,19 +73,25 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Build ETL Docker image
-        run: |
-          docker build -f infrastructure/docker/etl/Dockerfile -t sales-etl:${{ github.sha }} .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Save ETL image to tarball
-        run: |
-          docker save sales-etl:${{ github.sha }} | gzip > sales-etl-${{ github.sha }}.tar.gz
+      - name: Build ETL Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infrastructure/docker/etl/Dockerfile
+          tags: sales-etl:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/sales-etl.tar
 
       - name: Upload ETL Docker image artifact
         uses: actions/upload-artifact@v4
         with:
           name: sales-etl-image
-          path: sales-etl-${{ github.sha }}.tar.gz
+          path: /tmp/sales-etl.tar
+          retention-days: 7
 
   build-docker-spark:
     name: Build Spark Docker Image
@@ -80,16 +102,22 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Build Spark Docker image
-        run: |
-          docker build -f infrastructure/docker/Dockerfile.spark -t sales-spark:${{ github.sha }} .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Save Spark image to tarball
-        run: |
-          docker save sales-spark:${{ github.sha }} | gzip > sales-spark-${{ github.sha }}.tar.gz
+      - name: Build Spark Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infrastructure/docker/Dockerfile.spark
+          tags: sales-spark:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/sales-spark.tar
 
       - name: Upload Spark Docker image artifact
         uses: actions/upload-artifact@v4
         with:
           name: sales-spark-image
-          path: sales-spark-${{ github.sha }}.tar.gz
+          path: /tmp/sales-spark.tar
+          retention-days: 7

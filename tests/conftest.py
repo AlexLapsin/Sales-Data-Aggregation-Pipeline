@@ -3,6 +3,7 @@ import sys
 import os
 import pytest
 import logging
+import tempfile
 from pathlib import Path
 
 # Configure logging for tests
@@ -17,6 +18,14 @@ sys.path.insert(0, SRC_PATH)
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+
+# Try to import PySpark for Spark fixtures
+try:
+    from pyspark.sql import SparkSession
+
+    SPARK_AVAILABLE = True
+except ImportError:
+    SPARK_AVAILABLE = False
 
 
 @pytest.fixture(scope="session")
@@ -46,6 +55,35 @@ def setup_test_environment():
     # Cleanup after test if needed
 
 
+@pytest.fixture(scope="session")
+def spark():
+    """
+    Provide a Spark session for tests.
+
+    Skips tests that require Spark if PySpark is not available.
+    """
+    if not SPARK_AVAILABLE:
+        pytest.skip("PySpark not available")
+
+    spark = (
+        SparkSession.builder.appName("test-sales-pipeline")
+        .master("local[2]")
+        .config("spark.driver.memory", "1g")
+        .config("spark.executor.memory", "1g")
+        .config("spark.sql.shuffle.partitions", "2")
+        .config("spark.sql.warehouse.dir", tempfile.mkdtemp())
+        .getOrCreate()
+    )
+
+    # Set log level to reduce noise
+    spark.sparkContext.setLogLevel("WARN")
+
+    yield spark
+
+    # Cleanup
+    spark.stop()
+
+
 def pytest_configure(config):
     """Configure pytest with custom markers"""
     config.addinivalue_line(
@@ -56,6 +94,14 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "kafka: marks tests that require Kafka")
     config.addinivalue_line("markers", "aws: marks tests that require AWS access")
     config.addinivalue_line("markers", "docker: marks tests that require Docker")
+    config.addinivalue_line(
+        "markers",
+        "requires_credentials: marks tests that require cloud credentials (Snowflake, AWS, etc.)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "requires_infrastructure: marks tests that require running infrastructure (Kafka, PostgreSQL, etc.)",
+    )
 
 
 def pytest_collection_modifyitems(config, items):

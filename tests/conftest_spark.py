@@ -202,7 +202,8 @@ def mock_snowflake_config():
     return {
         "sfUrl": "test.snowflake.com",
         "sfUser": "test_user",
-        "sfPassword": "test_password",
+        "sfPrivateKeyPath": "/tmp/test_rsa_key.p8",
+        "sfKeyPassphrase": "test_passphrase",
         "sfDatabase": "TEST_DB",
         "sfSchema": "TEST_SCHEMA",
         "sfWarehouse": "TEST_WH",
@@ -221,7 +222,8 @@ def etl_job_with_mock_snowflake(spark_session: SparkSession, mock_snowflake_conf
         {
             "SNOWFLAKE_ACCOUNT": mock_snowflake_config["sfUrl"],
             "SNOWFLAKE_USER": mock_snowflake_config["sfUser"],
-            "SNOWFLAKE_PASSWORD": mock_snowflake_config["sfPassword"],
+            "SNOWFLAKE_PRIVATE_KEY_PATH": mock_snowflake_config["sfPrivateKeyPath"],
+            "SNOWFLAKE_KEY_PASSPHRASE": mock_snowflake_config["sfKeyPassphrase"],
             "SNOWFLAKE_DATABASE": mock_snowflake_config["sfDatabase"],
             "SNOWFLAKE_SCHEMA": mock_snowflake_config["sfSchema"],
             "SNOWFLAKE_WAREHOUSE": mock_snowflake_config["sfWarehouse"],

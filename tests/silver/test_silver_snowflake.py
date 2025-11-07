@@ -8,13 +8,24 @@ Delta Direct (Iceberg) integration.
 
 import os
 import sys
+import pytest
 from dotenv import load_dotenv
-import snowflake.connector
+
+# Import Snowflake auth helper
+from tests.helpers import (
+    get_snowflake_connection,
+    check_snowflake_credentials_available,
+)
 
 # Load environment
 load_dotenv()
 
 
+@pytest.mark.requires_credentials
+@pytest.mark.skipif(
+    not check_snowflake_credentials_available(),
+    reason="Snowflake credentials not available",
+)
 def test_silver_via_snowflake():
     """Test Silver layer data through Snowflake Delta Direct"""
 
@@ -22,16 +33,8 @@ def test_silver_via_snowflake():
     print("SILVER LAYER DATA QUALITY TEST (via Snowflake Delta Direct)")
     print("=" * 80)
 
-    # Connect to Snowflake
-    conn = snowflake.connector.connect(
-        user=os.getenv("SNOWFLAKE_USER"),
-        password=os.getenv("SNOWFLAKE_PASSWORD"),
-        account=os.getenv("SNOWFLAKE_ACCOUNT"),
-        warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
-        database=os.getenv("SNOWFLAKE_DATABASE"),
-        schema=os.getenv("SNOWFLAKE_SCHEMA"),
-        role=os.getenv("SNOWFLAKE_ROLE"),
-    )
+    # Connect to Snowflake using key-pair authentication
+    conn = get_snowflake_connection()
 
     cursor = conn.cursor()
 
