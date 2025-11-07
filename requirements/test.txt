@@ -12,7 +12,7 @@ pytest-html>=3.2.0,<4.0.0
 pytest-spark>=0.6.0,<0.7.0
 
 # Cloud mocking
-moto>=4.2.15,<4.3.0
+moto>=5.0.0,<6.0.0
 
 # HTTP mocking
 responses>=0.24.0,<0.25.0
