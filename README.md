@@ -14,7 +14,169 @@
 ![AWS S3](https://img.shields.io/badge/AWS-S3-FF9900?logo=amazonaws)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)
 
-Enterprise-grade sales data aggregation pipeline demonstrating Medallion architecture (Bronze → Silver → Gold) with production-ready patterns including Delta Lake, Snowflake integration, and comprehensive data quality controls.
+## Table of Contents
+
+<table>
+<tr>
+<td>
+
+- [Overview](#overview)
+- [Demo](#demo)
+- [Highlights](#highlights)
+- [Who This Is For](#who-this-is-for)
+- [Real-World Use Case](#real-world-use-case)
+- [Architecture Overview](#architecture-overview)
+- [Key Features](#key-features)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [Documentation](#documentation)
+- [Testing](#testing)
+
+</td>
+<td>
+
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Project Structure](#project-structure)
+- [Data Schema](#data-schema)
+- [Development](#development)
+- [Known Limitations](#known-limitations)
+- [Recent Improvements](#recent-improvements)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+</td>
+</tr>
+</table>
+
+## Overview
+
+This project is an **end-to-end data aggregation pipeline** for retail sales data, designed to demonstrate production-ready data engineering patterns. It implements a complete **Medallion architecture** (Bronze → Silver → Gold) with enterprise-grade features including ACID transactions, slowly changing dimensions, comprehensive data quality controls, and cloud-native deployment.
+
+**Key Technologies:** Apache Airflow 2.10, Apache Spark 3.5.7, Delta Lake 3.2.0, Apache Kafka 3.5+, dbt 1.7+, Snowflake, Terraform 1.5+, AWS S3, Docker
+
+**Implementation:** Fully functional batch and streaming pipelines with infrastructure-as-code deployment, automated data quality testing, and professional documentation.
+
+## Demo
+
+**Coming Soon:** Video walkthrough demonstrating the complete pipeline from data ingestion to Snowflake analytics.
+
+**What the demo will cover:**
+- Local environment setup with Docker Compose
+- CSV batch ingestion through Bronze → Silver → Gold layers
+- Real-time Kafka streaming with S3 sink connector
+- dbt transformations building dimensional model
+- Snowflake query examples showing SCD Type 2 in action
+- Data quality validation and testing
+
+**In the meantime:** Follow the **[Getting Started Tutorial](docs/tutorial/getting-started.md)** for a complete 60-minute guided walkthrough.
+
+## Highlights
+
+**End-to-End Production Pipeline**
+- Orchestrates both batch (CSV) and streaming (Kafka) data ingestion
+- ACID-compliant Delta Lake Silver layer with schema enforcement and time travel
+- Snowflake Gold layer with SCD Type 2 slowly changing dimensions
+- Dataset-aware Airflow DAG triggers for automated workflow coordination
+
+**Production-Ready Architecture**
+- Medallion architecture (Bronze/Silver/Gold) with clear separation of concerns
+- Two-tier deduplication strategy (UUIDv7 row IDs + business key validation)
+- Master Data Management (MDM) patterns for customer and product golden records
+- Comprehensive dbt testing (90+ tests) covering uniqueness, referential integrity, and business logic
+
+**Enterprise Security**
+- RSA key-pair authentication for Snowflake (2048-bit encrypted keys)
+- AWS IAM least privilege policies with resource-level permissions
+- Encryption at rest (S3 SSE, Snowflake) and in transit (TLS 1.2+)
+- Container security with non-root users and minimal attack surface
+
+**Developer Experience**
+- Complete Docker Compose environment for local development (no cloud required for testing orchestration)
+- Infrastructure-as-Code with Terraform for reproducible deployments
+- Automated validation tools (config_validator, setup_doctor) for environment health checks
+- Professional documentation following Diátaxis framework (Tutorial, How-To, Reference, Explanation)
+
+## Who This Is For
+
+**Data Engineers**
+Reference implementation of modern lakehouse architecture with Delta Lake, Airflow orchestration, and dbt transformations. Demonstrates production patterns for data quality, SCD Type 2, and ACID transactions.
+
+**Analytics Engineers**
+Comprehensive dbt project with staging, intermediate, and marts layers. Includes 90+ tests, custom macros, and dimensional modeling with slowly changing dimensions.
+
+**Platform Engineers / DevOps**
+Infrastructure-as-Code deployment with Terraform, Docker Compose orchestration, and security best practices. Demonstrates cloud-native architecture with AWS S3 and Snowflake integration.
+
+**Hiring Managers / Recruiters**
+Portfolio project showcasing end-to-end data pipeline development, modern tooling proficiency, and software engineering best practices (testing, documentation, version control).
+
+## Real-World Use Case
+
+**Business Scenario:** This pipeline simulates a retail company consolidating sales data from multiple sources (batch CSV files from legacy systems, real-time Kafka events from point-of-sale terminals) into a unified analytics platform.
+
+**Data Flow:**
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                          DATA SOURCES                                 │
+├──────────────────────────────────────────────────────────────────────┤
+│  Batch: Legacy ERP CSV exports (daily sales reports)                 │
+│  Streaming: Point-of-sale Kafka events (real-time transactions)      │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    BRONZE LAYER (Raw Data Lake)                       │
+├──────────────────────────────────────────────────────────────────────┤
+│  AWS S3 Storage with date partitioning (year=YYYY/month=MM/day=DD/)  │
+│  Purpose: Immutable audit trail, regulatory compliance (90 days)     │
+│  Format: CSV (batch), JSON (streaming)                               │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                          ┌──────────────┐
+                          │  Spark ETL   │
+                          │  Validation  │
+                          │  Cleaning    │
+                          │  Deduplication│
+                          └──────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                SILVER LAYER (Validated Data Foundation)               │
+├──────────────────────────────────────────────────────────────────────┤
+│  Delta Lake 3.2.0 (ACID transactions, schema enforcement)            │
+│  Purpose: Single source of truth for downstream analytics            │
+│  Features: Time travel (30 days), automatic file management          │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼ (Dataset Trigger)
+                          ┌──────────────┐
+                          │ dbt Models   │
+                          │ Staging      │
+                          │ Intermediate │
+                          │ Marts (SCD2) │
+                          └──────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                  GOLD LAYER (Business Analytics)                      │
+├──────────────────────────────────────────────────────────────────────┤
+│  Snowflake Cloud Data Warehouse (Star Schema)                        │
+│  Dimensions: dim_customer, dim_product, dim_store, dim_date          │
+│  Facts: fact_sales (with data quality scores)                        │
+│  Purpose: Business intelligence, reporting, ad-hoc analysis          │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Business Value:**
+- **Unified View:** Combines batch and streaming sources into single source of truth
+- **Historical Tracking:** SCD Type 2 dimensions track changes over time (customer relocations, product price changes)
+- **Data Quality:** Automated testing and quality scores ensure analytics reliability
+- **Compliance:** Bronze layer provides immutable audit trail for regulatory requirements
+- **Scalability:** Cloud-native architecture scales from gigabytes to petabytes
 
 ## Architecture Overview
 
@@ -111,217 +273,86 @@ DATA SOURCES                INGESTION              PROCESSING
 
 ## Quick Start
 
-### Prerequisites
-- **Docker** & **Docker Compose**
-- **Python 3.9+**
-- **AWS CLI** (configured with credentials)
-- **Snowflake Account** (with key-pair authentication set up)
-- **Git**
+Get the pipeline running in 60 minutes with the **[Complete Tutorial](docs/tutorial/getting-started.md)**.
 
-### 1. Clone and Configure
+**Prerequisites:**
+- Docker Desktop & Docker Compose
+- Python 3.9+
+- AWS CLI (configured with credentials)
+- Snowflake account (with RSA key-pair authentication)
+
+**Three Steps to Running Pipeline:**
 
 ```bash
-# Clone repository
+# 1. Clone & Configure
 git clone https://github.com/your-org/sales-data-aggregation-pipeline.git
 cd sales-data-aggregation-pipeline
-
-# Copy environment template
 cp .env.example .env
+# Edit .env with your AWS and Snowflake credentials
 
-# Edit .env with your credentials:
-# - AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-# - RAW_BUCKET and PROCESSED_BUCKET (S3 bucket names)
-# - SNOWFLAKE_ACCOUNT_NAME, SNOWFLAKE_ORGANIZATION_NAME, SNOWFLAKE_USER
-# - SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_KEY_PASSPHRASE
-nano .env
-```
-
-### 2. Deploy Infrastructure
-
-```bash
-# Export Terraform variables from .env
+# 2. Deploy Infrastructure (Terraform)
 source export_tf_vars.sh
+cd infrastructure/terraform && terraform init && terraform apply
+cd ../..
 
-# Deploy AWS S3 buckets, IAM roles, and Snowflake external volume
-cd infrastructure/terraform
-terraform init
-terraform plan
-terraform apply
-
-# Verify deployment
-terraform output
-```
-
-### 3. Start Local Services
-
-```bash
-# Build and start all services (Airflow, Kafka, PostgreSQL, Redis)
-docker-compose up --build
-
-# Alternative: run in background
+# 3. Start Services & Upload Data
 docker-compose up -d
-
-# Monitor services
-docker-compose ps
-docker-compose logs -f airflow-scheduler
+python src/bronze/data_uploader.py --source data/sample_sales.csv
 ```
 
-Wait approximately 2-3 minutes for Airflow initialization to complete.
-
-### 4. Validate Setup
-
-```bash
-# Run comprehensive environment validation
-python tools/validation/setup_doctor.py
-
-# Validate configuration
-python tools/validation/config_validator.py --validate-all
-```
-
-### 5. Access Services
-
-- **Airflow UI**: http://localhost:8080 (credentials: admin/admin)
-- **Kafka**: localhost:9092
-- **PostgreSQL** (Airflow metadata): localhost:5432
+**Next Steps:**
+- Access **Airflow UI**: http://localhost:8080 (credentials: admin/admin)
+- Trigger `batch_processing_dag` to process data through Bronze → Silver → Gold
+- **[Complete Tutorial](docs/tutorial/getting-started.md)** - 60-minute guided walkthrough
+- **[Configure Environment](docs/how-to/configure-environment.md)** - Detailed local setup
 
 ## Usage
 
-### Batch Data Processing
-
-#### Upload CSV Data to Bronze Layer
+### Batch Processing (CSV Files)
 
 ```bash
-# Upload sample CSV file
+# Upload CSV to Bronze layer
 python src/bronze/data_uploader.py --source data/sample_sales.csv
 
-# Verify upload in S3
-aws s3 ls s3://YOUR_RAW_BUCKET/sales_data/ --recursive
+# Trigger Airflow DAG via UI
+# 1. Open http://localhost:8080
+# 2. Enable and trigger 'batch_processing_dag'
+# 3. Monitor 'analytics_dag' (auto-triggered)
 ```
 
-The data_uploader automatically:
-- Validates CSV schema (24-field canonical format)
-- Generates date-based partitions (year=YYYY/month=MM/day=DD/)
-- Uploads to S3 Bronze layer
+**Pipeline Flow:** CSV → S3 Bronze → Spark ETL → Delta Lake Silver → dbt Transformations → Snowflake Gold
 
-#### Trigger Batch Processing DAG
-
-1. Open Airflow UI: http://localhost:8080
-2. Locate `batch_processing_dag`
-3. Enable the DAG (toggle switch)
-4. Click "Trigger DAG" to start processing
-
-The batch_processing_dag will:
-- Detect new files in S3 Bronze layer
-- Run Spark ETL job with validation, cleaning, and deduplication
-- Write to Delta Lake Silver layer
-- Automatically trigger `analytics_dag` via dataset event
-
-#### Monitor Analytics DAG
-
-The `analytics_dag` runs automatically after batch processing completes:
-- Executes dbt staging models (stg_customers_from_sales, stg_products_from_sales, stg_sales_silver)
-- Builds intermediate models with SCD2 logic (int_product_scd2, int_store_scd2, int_sales_unified)
-- Creates Gold layer dimensions (dim_customer, dim_product, dim_store, dim_date)
-- Builds fact table (fact_sales)
-- Runs comprehensive dbt tests
-
-### Streaming Data Processing
-
-#### Start Kafka Producer
+### Streaming Processing (Kafka)
 
 ```bash
-# Generate 1000 sales events at 1-second intervals
+# Generate sales events
 python src/streaming/sales_event_producer.py --events 1000 --interval 1
 
-# Generate continuous stream
-python src/streaming/sales_event_producer.py --continuous
-```
-
-#### Deploy Kafka Connect S3 Sink
-
-```bash
-# Deploy connector to write Kafka events to S3 Bronze layer
+# Deploy Kafka Connect S3 sink
 bash deploy/streaming/deploy_connector.sh
 
-# Verify connector status
-curl http://localhost:8083/connectors/s3-sink-sales/status | jq
+# Trigger 'streaming_processing_dag' in Airflow UI
 ```
 
-#### Trigger Streaming Processing DAG
-
-1. Open Airflow UI: http://localhost:8080
-2. Locate `streaming_processing_dag`
-3. Enable and trigger the DAG
-
-The streaming_processing_dag will:
-- Detect JSON files in S3 Bronze layer (sales_events/ prefix)
-- Run Spark streaming job with schema normalization
-- Merge into Delta Lake Silver layer (upsert operation)
-- Trigger `analytics_dag` for incremental dbt processing
+**Pipeline Flow:** Kafka Events → S3 Bronze → Spark Streaming → Delta Lake Silver (upsert) → dbt Incremental → Snowflake Gold
 
 ### dbt Transformations
 
 ```bash
-# Navigate to dbt directory
 cd dbt/
 
-# Install dbt dependencies
-dbt deps
-
-# Run all transformations
+# Run transformations and tests
 dbt run --target dev
-
-# Run data quality tests
 dbt test --target dev
 
-# Run specific models
-dbt run --select staging --target dev
-dbt run --select intermediate --target dev
-dbt run --select marts --target dev
-
-# Generate and serve documentation
-dbt docs generate
-dbt docs serve
+# Generate documentation
+dbt docs generate && dbt docs serve
 ```
 
-### Verify Data in Snowflake
-
-```sql
--- Connect to Snowflake and verify Gold layer
-
--- Check dimension row counts
-SELECT 'dim_customer' as table_name, COUNT(*) as row_count FROM SALES_DB.PUBLIC.dim_customer
-UNION ALL
-SELECT 'dim_product', COUNT(*) FROM SALES_DB.PUBLIC.dim_product
-UNION ALL
-SELECT 'dim_store', COUNT(*) FROM SALES_DB.PUBLIC.dim_store
-UNION ALL
-SELECT 'dim_date', COUNT(*) FROM SALES_DB.PUBLIC.dim_date;
-
--- Check fact table
-SELECT COUNT(*) as total_sales FROM SALES_DB.PUBLIC.fact_sales;
-
--- Verify SCD2 integrity (should have no duplicates with is_current = TRUE)
-SELECT customer_id, COUNT(*) as duplicate_count
-FROM SALES_DB.PUBLIC.dim_customer
-WHERE is_current = TRUE
-GROUP BY customer_id
-HAVING COUNT(*) > 1;
-
--- Check data quality scores
-SELECT
-    CASE
-        WHEN data_quality_score >= 90 THEN '90-100 (Excellent)'
-        WHEN data_quality_score >= 80 THEN '80-89 (Good)'
-        WHEN data_quality_score >= 70 THEN '70-79 (Acceptable)'
-        ELSE '<70 (Poor)'
-    END as quality_tier,
-    COUNT(*) as record_count,
-    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 1) as percentage
-FROM SALES_DB.PUBLIC.fact_sales
-GROUP BY quality_tier
-ORDER BY quality_tier DESC;
-```
+**Complete Guides:**
+- **[Run Batch Pipeline](docs/how-to/run-batch-pipeline.md)** - Detailed batch processing
+- **[Run Streaming Pipeline](docs/how-to/run-streaming-pipeline.md)** - Kafka streaming setup
+- **[Verify Data in Snowflake](docs/how-to/run-batch-pipeline.md#verify-data-in-snowflake)** - SQL validation queries
 
 ## Documentation
 
@@ -396,157 +427,57 @@ dbt test --select test_type:singular # Custom business logic tests
 
 ## Configuration
 
-### Required Environment Variables
+All configuration is managed through environment variables in the `.env` file.
 
-Create a `.env` file with the following configuration:
-
+**Setup:**
 ```bash
-# AWS Configuration
-AWS_ACCESS_KEY_ID="your_access_key"
-AWS_SECRET_ACCESS_KEY="your_secret_key"
-AWS_DEFAULT_REGION="us-east-1"
-
-# S3 Buckets
-RAW_BUCKET="your-project-raw-bucket"
-PROCESSED_BUCKET="your-project-processed-bucket"
-
-# Snowflake Configuration (Key-Pair Authentication)
-SNOWFLAKE_ACCOUNT_NAME="xy12345"
-SNOWFLAKE_ORGANIZATION_NAME="your_org"
-SNOWFLAKE_USER="YOUR_USER"
-SNOWFLAKE_PRIVATE_KEY_PATH="F:/path/to/rsa_key.p8"
-SNOWFLAKE_KEY_PASSPHRASE="your_passphrase"
-SNOWFLAKE_ROLE="ACCOUNTADMIN"
-SNOWFLAKE_WAREHOUSE="COMPUTE_WH"
-SNOWFLAKE_DATABASE="SALES_DB"
-SNOWFLAKE_SCHEMA="PUBLIC"
-
-# Snowflake AWS Integration (from Terraform output)
-SNOWFLAKE_IAM_USER_ARN="arn:aws:iam::123456789012:user/abc12345-s"
-SNOWFLAKE_EXTERNAL_ID="ABC12345_SFCRole=123_..."
-
-# Kafka Configuration
-KAFKA_BOOTSTRAP_SERVERS="kafka:9092"
-KAFKA_TOPIC="sales_events"
-
-# Project Configuration
-PROJECT_NAME="sales-data-pipeline"
-ENVIRONMENT="dev"
-ALLOWED_CIDR="your.ip.address/32"
+cp .env.example .env
+# Edit .env with your credentials
 ```
 
-See **[Configuration Reference](docs/reference/configuration.md)** for complete documentation.
-
-### Key-Pair Authentication Setup
-
-Snowflake requires RSA key-pair authentication:
-
-1. Generate RSA key pair:
+**Essential Variables:**
 ```bash
-mkdir -p config/keys
-cd config/keys
+# AWS
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+RAW_BUCKET=your-project-raw-bucket
+PROCESSED_BUCKET=your-project-processed-bucket
 
-# Generate private key with passphrase
-openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out rsa_key.p8
-
-# Generate public key
-openssl rsa -in rsa_key.p8 -pubout -out rsa_key.pub
+# Snowflake (RSA Key-Pair Authentication)
+SNOWFLAKE_ACCOUNT_NAME=xy12345
+SNOWFLAKE_ORGANIZATION_NAME=your_org
+SNOWFLAKE_USER=YOUR_USER
+SNOWFLAKE_PRIVATE_KEY_PATH=/config/keys/rsa_key.p8
+SNOWFLAKE_KEY_PASSPHRASE=your_passphrase
 ```
 
-2. Register public key in Snowflake:
-```sql
-ALTER USER YOUR_USER SET RSA_PUBLIC_KEY='<paste_your_public_key_here>';
-```
+**Complete Reference:** [Configuration Guide](docs/reference/configuration.md)
 
-3. Update `.env`:
-```bash
-SNOWFLAKE_PRIVATE_KEY_PATH="F:/GITHUB/sales_data_aggregation_pipeline/config/keys/rsa_key.p8"
-SNOWFLAKE_KEY_PASSPHRASE="your_passphrase"
-```
+**Key-Pair Setup:** [Deploy Infrastructure](docs/how-to/deploy-infrastructure.md#snowflake-key-pair-setup)
 
 ## Troubleshooting
 
-### Common Issues
+### Top 3 Common Issues
 
-#### 1. Airflow Webserver Not Starting
+**1. Airflow Webserver Not Starting**
 ```bash
-# Check Airflow logs
 docker-compose logs airflow-webserver
-
-# Wait 2-3 minutes for initialization
-# Airflow requires database migration on first startup
+# Wait 2-3 minutes for initialization (database migration on first startup)
 ```
 
-#### 2. S3 Access Denied
+**2. S3 Access Denied**
 ```bash
-# Verify AWS credentials
-aws sts get-caller-identity
-
-# Test bucket access
-aws s3 ls s3://YOUR_RAW_BUCKET/
-
-# Check IAM permissions in AWS Console
+aws sts get-caller-identity  # Verify AWS credentials
+aws s3 ls s3://YOUR_RAW_BUCKET/  # Test bucket access
 ```
 
-#### 3. Snowflake Connection Failed
+**3. Snowflake Connection Failed**
 ```bash
-# Test key-pair authentication
-python -c "
-import os
-import snowflake.connector
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-
-with open(os.getenv('SNOWFLAKE_PRIVATE_KEY_PATH'), 'rb') as key:
-    p_key = serialization.load_pem_private_key(
-        key.read(),
-        password=os.getenv('SNOWFLAKE_KEY_PASSPHRASE').encode(),
-        backend=default_backend()
-    )
-
-pkb = p_key.private_bytes(
-    encoding=serialization.Encoding.DER,
-    format=serialization.PrivateFormat.PKCS8,
-    encryption_algorithm=serialization.NoEncryption()
-)
-
-conn = snowflake.connector.connect(
-    user=os.getenv('SNOWFLAKE_USER'),
-    account=f\"{os.getenv('SNOWFLAKE_ACCOUNT_NAME')}.{os.getenv('SNOWFLAKE_ORGANIZATION_NAME')}\",
-    private_key=pkb,
-    warehouse=os.getenv('SNOWFLAKE_WAREHOUSE')
-)
-print('Connection successful!')
-conn.close()
-"
+# Verify key-pair authentication
+python tools/validation/config_validator.py --validate-snowflake
 ```
 
-#### 4. dbt Tests Failing
-```bash
-cd dbt/
-
-# Run with verbose output
-dbt test --target dev --debug
-
-# Test specific model
-dbt test --select dim_customer --target dev
-
-# Check compiled SQL
-cat target/compiled/sales_dw/models/marts/dim_customer.sql
-```
-
-#### 5. Delta Lake Parquet Read Errors
-```bash
-# Verify Delta log exists
-aws s3 ls s3://YOUR_PROCESSED_BUCKET/silver/sales/_delta_log/
-
-# Check Spark version compatibility (should be 3.5.7)
-docker-compose exec etl-pipeline spark-submit --version
-
-# Verify Delta Lake version (should be 3.2.0)
-```
-
-For comprehensive troubleshooting, see **[Troubleshooting Guide](docs/how-to/troubleshooting.md)**.
+**Complete Troubleshooting:** [Troubleshooting Guide](docs/how-to/troubleshooting.md) covers 20+ issues including dbt test failures, Delta Lake errors, Kafka Connect problems, and Docker issues.
 
 ## Project Structure
 
@@ -621,7 +552,7 @@ sales_data_aggregation_pipeline/
 
 ### Canonical 24-Field Schema
 
-All layers (Bronze, Silver, Gold) maintain a consistent 24-field schema:
+All layers (Bronze, Silver, Gold) maintain this consistent schema:
 
 ```
 Row ID, Order ID, Order Date, Ship Date, Ship Mode, Customer ID, Customer Name,
@@ -631,16 +562,15 @@ Sub-Category, Product Name, Sales, Quantity, Discount, Profit, Shipping Cost, Or
 
 ### Star Schema (Gold Layer)
 
-**Fact Table:**
-- `fact_sales`: Sales transactions with foreign keys to dimensions
+**Fact Table:** `fact_sales` (sales transactions with foreign keys to dimensions)
 
 **Dimension Tables:**
-- `dim_customer`: Customer dimension with SCD Type 2
-- `dim_product`: Product dimension with SCD Type 2
-- `dim_store`: Store/location dimension with SCD Type 2
-- `dim_date`: Date dimension for time-based analysis
+- `dim_customer` - Customer dimension with SCD Type 2
+- `dim_product` - Product dimension with SCD Type 2
+- `dim_store` - Store/location dimension with SCD Type 2
+- `dim_date` - Date dimension for time-based analysis
 
-See **[Data Dictionary](docs/reference/data-dictionary.md)** for complete schema documentation.
+**Complete Schema:** [Data Dictionary](docs/reference/data-dictionary.md)
 
 ## Development
 
@@ -720,6 +650,33 @@ See **[Data Dictionary](docs/reference/data-dictionary.md)** for complete schema
 - IaC security scanning with tfsec
 - Dependency vulnerability scanning with safety and pip-audit
 
+## Contributing
+
+Contributions are welcome! This project follows standard open-source practices.
+
+**How to Contribute:**
+
+1. **Fork the repository** and create a feature branch
+2. **Make your changes** with appropriate tests and documentation
+3. **Run the test suite** to ensure all tests pass
+4. **Submit a pull request** with a clear description of your changes
+
+**Contribution Guidelines:**
+
+- Follow existing code style (Black, Flake8, MyPy for Python)
+- Add tests for new functionality (maintain 90%+ coverage)
+- Update documentation in `docs/` for user-facing changes
+- Use professional tone (no emojis or marketing language)
+- Ensure all CI/CD checks pass
+
+**Reporting Issues:**
+
+- Use GitHub Issues for bug reports and feature requests
+- Provide detailed reproduction steps for bugs
+- Include environment details (OS, Python version, Docker version)
+
+**Questions?** Open a discussion on GitHub or create an issue.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -735,3 +692,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **For questions, issues, or contributions, please open an issue on GitHub.**
+
+[⬆ Back to Top](#sales-data-aggregation-pipeline)
