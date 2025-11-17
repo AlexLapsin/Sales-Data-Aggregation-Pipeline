@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-Ready-brightgreen?logo=githubactions)](https://github.com/features/actions)
 
 ![Apache Airflow 2.10](https://img.shields.io/badge/Apache%20Airflow-2.10-017CEE?logo=apacheairflow)
 ![Apache Spark 3.5.7](https://img.shields.io/badge/Apache%20Spark-3.5.7-E25A1C?logo=apachespark)
@@ -21,24 +22,27 @@
 <td>
 
 - [Overview](#overview)
-- [Demo](#demo)
 - [Highlights](#highlights)
 - [Who This Is For](#who-this-is-for)
 - [Real-World Use Case](#real-world-use-case)
 - [Architecture Overview](#architecture-overview)
 - [Key Features](#key-features)
 - [Quick Start](#quick-start)
-- [Usage](#usage)
-- [Documentation](#documentation)
-- [Testing](#testing)
 
 </td>
 <td>
 
+- [Usage](#usage)
+- [Documentation](#documentation)
+- [Testing](#testing)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Project Structure](#project-structure)
 - [Data Schema](#data-schema)
+
+</td>
+<td>
+
 - [Development](#development)
 - [Known Limitations](#known-limitations)
 - [Recent Improvements](#recent-improvements)
@@ -57,20 +61,6 @@ This project is an **end-to-end data aggregation pipeline** for retail sales dat
 **Key Technologies:** Apache Airflow 2.10, Apache Spark 3.5.7, Delta Lake 3.2.0, Apache Kafka 3.5+, dbt 1.7+, Snowflake, Terraform 1.5+, AWS S3, Docker
 
 **Implementation:** Fully functional batch and streaming pipelines with infrastructure-as-code deployment, automated data quality testing, and professional documentation.
-
-## Demo
-
-**Coming Soon:** Video walkthrough demonstrating the complete pipeline from data ingestion to Snowflake analytics.
-
-**What the demo will cover:**
-- Local environment setup with Docker Compose
-- CSV batch ingestion through Bronze → Silver → Gold layers
-- Real-time Kafka streaming with S3 sink connector
-- dbt transformations building dimensional model
-- Snowflake query examples showing SCD Type 2 in action
-- Data quality validation and testing
-
-**In the meantime:** Follow the **[Getting Started Tutorial](docs/tutorial/getting-started.md)** for a complete 60-minute guided walkthrough.
 
 ## Highlights
 
