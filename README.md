@@ -22,30 +22,25 @@
 <td>
 
 - [Overview](#overview)
-- [Highlights](#highlights)
-- [Who This Is For](#who-this-is-for)
-- [Real-World Use Case](#real-world-use-case)
 - [Architecture Overview](#architecture-overview)
 - [Key Features](#key-features)
 - [Quick Start](#quick-start)
+- [Usage](#usage)
 
 </td>
 <td>
 
-- [Usage](#usage)
 - [Documentation](#documentation)
 - [Testing](#testing)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Project Structure](#project-structure)
-- [Data Schema](#data-schema)
 
 </td>
 <td>
 
-- [Development](#development)
+- [Data Schema](#data-schema)
 - [Known Limitations](#known-limitations)
-- [Recent Improvements](#recent-improvements)
 - [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
@@ -56,117 +51,11 @@
 
 ## Overview
 
-This project is an **end-to-end data aggregation pipeline** for retail sales data, designed to demonstrate production-ready data engineering patterns. It implements a complete **Medallion architecture** (Bronze → Silver → Gold) with enterprise-grade features including ACID transactions, slowly changing dimensions, comprehensive data quality controls, and cloud-native deployment.
+A sales data aggregation pipeline that implements the Medallion architecture (Bronze → Silver → Gold) to process both batch and streaming data into a Snowflake analytics platform.
 
-**Key Technologies:** Apache Airflow 2.10, Apache Spark 3.5.7, Delta Lake 3.2.0, Apache Kafka 3.5+, dbt 1.7+, Snowflake, Terraform 1.5+, AWS S3, Docker
+The pipeline ingests data from CSV files and Kafka streams, validates and transforms it through Delta Lake using Apache Spark, applies SCD Type 2 dimensional modeling with dbt, and delivers analytics-ready tables to Snowflake. Apache Airflow orchestrates the entire workflow with dataset-aware triggers.
 
-**Implementation:** Fully functional batch and streaming pipelines with infrastructure-as-code deployment, automated data quality testing, and professional documentation.
-
-## Highlights
-
-**End-to-End Production Pipeline**
-- Orchestrates both batch (CSV) and streaming (Kafka) data ingestion
-- ACID-compliant Delta Lake Silver layer with schema enforcement and time travel
-- Snowflake Gold layer with SCD Type 2 slowly changing dimensions
-- Dataset-aware Airflow DAG triggers for automated workflow coordination
-
-**Production-Ready Architecture**
-- Medallion architecture (Bronze/Silver/Gold) with clear separation of concerns
-- Two-tier deduplication strategy (UUIDv7 row IDs + business key validation)
-- Master Data Management (MDM) patterns for customer and product golden records
-- Comprehensive dbt testing (90+ tests) covering uniqueness, referential integrity, and business logic
-
-**Enterprise Security**
-- RSA key-pair authentication for Snowflake (2048-bit encrypted keys)
-- AWS IAM least privilege policies with resource-level permissions
-- Encryption at rest (S3 SSE, Snowflake) and in transit (TLS 1.2+)
-- Container security with non-root users and minimal attack surface
-
-**Developer Experience**
-- Complete Docker Compose environment for local development (no cloud required for testing orchestration)
-- Infrastructure-as-Code with Terraform for reproducible deployments
-- Automated validation tools (config_validator, setup_doctor) for environment health checks
-- Professional documentation following Diátaxis framework (Tutorial, How-To, Reference, Explanation)
-
-## Who This Is For
-
-**Data Engineers**
-Reference implementation of modern lakehouse architecture with Delta Lake, Airflow orchestration, and dbt transformations. Demonstrates production patterns for data quality, SCD Type 2, and ACID transactions.
-
-**Analytics Engineers**
-Comprehensive dbt project with staging, intermediate, and marts layers. Includes 90+ tests, custom macros, and dimensional modeling with slowly changing dimensions.
-
-**Platform Engineers / DevOps**
-Infrastructure-as-Code deployment with Terraform, Docker Compose orchestration, and security best practices. Demonstrates cloud-native architecture with AWS S3 and Snowflake integration.
-
-**Hiring Managers / Recruiters**
-Portfolio project showcasing end-to-end data pipeline development, modern tooling proficiency, and software engineering best practices (testing, documentation, version control).
-
-## Real-World Use Case
-
-**Business Scenario:** This pipeline simulates a retail company consolidating sales data from multiple sources (batch CSV files from legacy systems, real-time Kafka events from point-of-sale terminals) into a unified analytics platform.
-
-**Data Flow:**
-
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                          DATA SOURCES                                 │
-├──────────────────────────────────────────────────────────────────────┤
-│  Batch: Legacy ERP CSV exports (daily sales reports)                 │
-│  Streaming: Point-of-sale Kafka events (real-time transactions)      │
-└──────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                    BRONZE LAYER (Raw Data Lake)                       │
-├──────────────────────────────────────────────────────────────────────┤
-│  AWS S3 Storage with date partitioning (year=YYYY/month=MM/day=DD/)  │
-│  Purpose: Immutable audit trail, regulatory compliance (90 days)     │
-│  Format: CSV (batch), JSON (streaming)                               │
-└──────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-                          ┌──────────────┐
-                          │  Spark ETL   │
-                          │  Validation  │
-                          │  Cleaning    │
-                          │  Deduplication│
-                          └──────────────┘
-                                  │
-                                  ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                SILVER LAYER (Validated Data Foundation)               │
-├──────────────────────────────────────────────────────────────────────┤
-│  Delta Lake 3.2.0 (ACID transactions, schema enforcement)            │
-│  Purpose: Single source of truth for downstream analytics            │
-│  Features: Time travel (30 days), automatic file management          │
-└──────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼ (Dataset Trigger)
-                          ┌──────────────┐
-                          │ dbt Models   │
-                          │ Staging      │
-                          │ Intermediate │
-                          │ Marts (SCD2) │
-                          └──────────────┘
-                                  │
-                                  ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                  GOLD LAYER (Business Analytics)                      │
-├──────────────────────────────────────────────────────────────────────┤
-│  Snowflake Cloud Data Warehouse (Star Schema)                        │
-│  Dimensions: dim_customer, dim_product, dim_store, dim_date          │
-│  Facts: fact_sales (with data quality scores)                        │
-│  Purpose: Business intelligence, reporting, ad-hoc analysis          │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-**Business Value:**
-- **Unified View:** Combines batch and streaming sources into single source of truth
-- **Historical Tracking:** SCD Type 2 dimensions track changes over time (customer relocations, product price changes)
-- **Data Quality:** Automated testing and quality scores ensure analytics reliability
-- **Compliance:** Bronze layer provides immutable audit trail for regulatory requirements
-- **Scalability:** Cloud-native architecture scales from gigabytes to petabytes
+**Technologies:** Apache Airflow 2.10, Apache Spark 3.5.7, Delta Lake 3.2.0, Apache Kafka 3.5+, dbt 1.7+, Snowflake, Terraform 1.5+, AWS S3, Docker
 
 ## Architecture Overview
 
@@ -228,6 +117,12 @@ DATA SOURCES                INGESTION              PROCESSING
 
 ## Key Features
 
+### End-to-End Data Pipeline
+- Batch data ingestion from CSV files with validation and date partitioning
+- Real-time streaming from Apache Kafka with S3 sink connector
+- Unified processing through Medallion architecture (Bronze/Silver/Gold)
+- Automated workflow coordination with Airflow dataset-aware triggers
+
 ### Medallion Architecture
 - **Bronze Layer**: S3-based raw data lake with date partitioning and immutable audit trail
 - **Silver Layer**: Delta Lake with ACID transactions, schema enforcement, and data quality validation
@@ -238,7 +133,7 @@ DATA SOURCES                INGESTION              PROCESSING
 - **Processing**: Apache Spark 3.5.7 with Delta Lake 3.2.0 for batch and streaming ETL
 - **Transformations**: dbt 1.7+ with comprehensive data quality testing
 - **Streaming**: Apache Kafka 3.5+ with Kafka Connect S3 sink
-- **Data Warehouse**: Snowflake with key-pair authentication and AUTO_REFRESH external tables
+- **Data Warehouse**: Snowflake with key-pair authentication
 - **Infrastructure**: Terraform 1.5+ for AWS S3, IAM, and Snowflake provisioning
 
 ### Data Quality & Reliability
@@ -447,27 +342,7 @@ SNOWFLAKE_KEY_PASSPHRASE=your_passphrase
 
 ## Troubleshooting
 
-### Top 3 Common Issues
-
-**1. Airflow Webserver Not Starting**
-```bash
-docker-compose logs airflow-webserver
-# Wait 2-3 minutes for initialization (database migration on first startup)
-```
-
-**2. S3 Access Denied**
-```bash
-aws sts get-caller-identity  # Verify AWS credentials
-aws s3 ls s3://YOUR_RAW_BUCKET/  # Test bucket access
-```
-
-**3. Snowflake Connection Failed**
-```bash
-# Verify key-pair authentication
-python tools/validation/config_validator.py --validate-snowflake
-```
-
-**Complete Troubleshooting:** [Troubleshooting Guide](docs/how-to/troubleshooting.md) covers 20+ issues including dbt test failures, Delta Lake errors, Kafka Connect problems, and Docker issues.
+For common issues and solutions, see the [Troubleshooting Guide](docs/how-to/troubleshooting.md).
 
 ## Project Structure
 
@@ -562,35 +437,6 @@ Sub-Category, Product Name, Sales, Quantity, Discount, Profit, Shipping Cost, Or
 
 **Complete Schema:** [Data Dictionary](docs/reference/data-dictionary.md)
 
-## Development
-
-### Code Standards
-
-- **Python**: Black formatting, Flake8 linting, MyPy type hints
-- **SQL/dbt**: Standard dbt conventions with documented models
-- **Testing**: Minimum 90% coverage target
-- **Documentation**: Update docs/ for all user-facing changes
-- **Professional Tone**: No emojis or marketing language
-
-### Development Workflow
-
-1. Create feature branch: `git checkout -b feature/your-feature`
-2. Make changes with tests
-3. Run test suite: `python tools/testing/run_tests.py`
-4. Format and lint: `black . && flake8 . && mypy src/`
-5. Commit: `git commit -am 'Add feature'`
-6. Push: `git push origin feature/your-feature`
-7. Create Pull Request
-
-### Adding New Features
-
-1. Update source code (src/streaming/, src/spark/, dbt/models/)
-2. Add comprehensive tests (tests/)
-3. Update Airflow DAGs if needed (airflow/dags/)
-4. Run full test suite
-5. Validate with setup_doctor: `python tools/validation/setup_doctor.py`
-6. Update documentation (docs/)
-
 ## Known Limitations
 
 ### Current Constraints
@@ -608,64 +454,15 @@ Sub-Category, Product Name, Sales, Quantity, Discount, Profit, Shipping Cost, Or
 4. **CI/CD**: GitHub Actions for testing, automated deployment pipelines, blue/green deployments
 5. **Cost Optimization**: S3 lifecycle policies, Snowflake auto-suspend tuning, spot instances
 
-## Recent Improvements
-
-### Phase 7 - Data Quality Fixes (2025-11-02)
-
-**Critical Bug Fixes:**
-- Fixed 95.9% data loss in fact_sales caused by incorrect SCD2 effective_date logic in int_product_scd2 and int_store_scd2
-- Eliminated 22 duplicate customer_ids by implementing MDM deduplication in stg_customers_from_sales
-- Resolved 8 NULL customer names by prioritizing non-NULL values in customer deduplication
-- Implemented two-tier deduplication in Spark ETL (row_id + business key)
-- Fixed category validation to accept all 8 legitimate categories
-- Adopted UUIDv7 for row_id generation (millisecond-precision sortable UUIDs)
-
-**Results:**
-- All dbt tests passing
-- Dimension joins working correctly (NULL foreign keys reduced from 77%/90% to <1%)
-- No duplicate current records in SCD2 dimensions
-- Comprehensive data quality scoring implemented
-
-### Phase 6 - Documentation Overhaul (2025-01-23)
-
-- Implemented Diátaxis framework for documentation organization
-- Created 13 professional documentation files across tutorial/how-to/reference/explanation
-- Added Architecture Decision Records (ADRs)
-- Archived legacy verbose documentation
-
-### Phase 5 - Security Audit (2025-01-23)
-
-- Implemented Snowflake key-pair authentication (RSA 2048-bit)
-- Container security hardening (non-root users)
-- IaC security scanning with tfsec
-- Dependency vulnerability scanning with safety and pip-audit
-
 ## Contributing
 
-Contributions are welcome! This project follows standard open-source practices.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+- Reporting issues
+- Submitting pull requests
+- Development setup
+- Code standards and testing
 
-**How to Contribute:**
-
-1. **Fork the repository** and create a feature branch
-2. **Make your changes** with appropriate tests and documentation
-3. **Run the test suite** to ensure all tests pass
-4. **Submit a pull request** with a clear description of your changes
-
-**Contribution Guidelines:**
-
-- Follow existing code style (Black, Flake8, MyPy for Python)
-- Add tests for new functionality (maintain 90%+ coverage)
-- Update documentation in `docs/` for user-facing changes
-- Use professional tone (no emojis or marketing language)
-- Ensure all CI/CD checks pass
-
-**Reporting Issues:**
-
-- Use GitHub Issues for bug reports and feature requests
-- Provide detailed reproduction steps for bugs
-- Include environment details (OS, Python version, Docker version)
-
-**Questions?** Open a discussion on GitHub or create an issue.
+For questions, open a GitHub issue or discussion.
 
 ## License
 
