@@ -53,7 +53,7 @@
 
 A sales data aggregation pipeline that implements the Medallion architecture (Bronze → Silver → Gold) to process both batch and streaming data into a Snowflake analytics platform.
 
-The pipeline ingests data from CSV files and Kafka streams, validates and transforms it through Delta Lake using Apache Spark, applies SCD Type 2 dimensional modeling with dbt, and delivers analytics-ready tables to Snowflake. Apache Airflow orchestrates the entire workflow with dataset-aware triggers.
+The pipeline ingests data from CSV files and Kafka streams, validates and transforms it using Apache Spark, stores the results in Delta Lake with ACID guarantees, applies SCD Type 2 dimensional modeling with dbt, and delivers analytics-ready tables to Snowflake. Apache Airflow orchestrates the entire workflow with dataset-aware triggers.
 
 **Technologies:** Apache Airflow 2.10, Apache Spark 3.5.7, Delta Lake 3.2.0, Apache Kafka 3.5+, dbt 1.7+, Snowflake, Terraform 1.5+, AWS S3, Docker
 
@@ -180,14 +180,13 @@ source export_tf_vars.sh
 cd infrastructure/terraform && terraform init && terraform apply
 cd ../..
 
-# 3. Start Services & Upload Data
+# 3. Start Services
 docker-compose up -d
-python src/bronze/data_uploader.py --source data/sample_sales.csv
 ```
 
 **Next Steps:**
 - Access **Airflow UI**: http://localhost:8080 (credentials: admin/admin)
-- Trigger `batch_processing_dag` to process data through Bronze → Silver → Gold
+- Enable and trigger `batch_processing_dag` (handles data upload and processing through Bronze → Silver → Gold)
 - **[Complete Tutorial](docs/tutorial/getting-started.md)** - 60-minute guided walkthrough
 - **[Configure Environment](docs/how-to/configure-environment.md)** - Detailed local setup
 
@@ -196,13 +195,13 @@ python src/bronze/data_uploader.py --source data/sample_sales.csv
 ### Batch Processing (CSV Files)
 
 ```bash
-# Upload CSV to Bronze layer
-python src/bronze/data_uploader.py --source data/sample_sales.csv
-
-# Trigger Airflow DAG via UI
+# Trigger Airflow DAG via UI (handles data upload automatically)
 # 1. Open http://localhost:8080
 # 2. Enable and trigger 'batch_processing_dag'
 # 3. Monitor 'analytics_dag' (auto-triggered)
+
+# Optional: Manual upload to Bronze layer (if needed outside of DAG)
+python src/bronze/data_uploader.py --source data/sample_sales.csv
 ```
 
 **Pipeline Flow:** CSV → S3 Bronze → Spark ETL → Delta Lake Silver → dbt Transformations → Snowflake Gold
