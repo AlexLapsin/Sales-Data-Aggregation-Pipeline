@@ -117,44 +117,21 @@ DATA SOURCES                INGESTION              PROCESSING
 
 ## Key Features
 
-### End-to-End Data Pipeline
-- Batch data ingestion from CSV files with validation and date partitioning
-- Real-time streaming from Apache Kafka with S3 sink connector
-- Unified processing through Medallion architecture (Bronze/Silver/Gold)
-- Automated workflow coordination with Airflow dataset-aware triggers
+**Production-Ready Architecture**
+- Medallion data lakehouse (Bronze → Silver → Gold) with ACID guarantees
+- SCD Type 2 dimensional modeling for historical change tracking
+- Automated orchestration with dataset-aware dependency triggers
 
-### Medallion Architecture
-- **Bronze Layer**: S3-based raw data lake with date partitioning and immutable audit trail
-- **Silver Layer**: Delta Lake with ACID transactions, schema enforcement, and data quality validation
-- **Gold Layer**: Snowflake star schema with dimensional modeling and SCD Type 2 support
+**Dual-Mode Data Processing**
+- Batch ingestion from CSV files with validation and partitioning
+- Real-time streaming from Apache Kafka with exactly-once semantics
+- Unified Delta Lake storage layer for both processing modes
 
-### Technology Stack
-- **Orchestration**: Apache Airflow 2.10 with dataset-aware DAG triggers
-- **Processing**: Apache Spark 3.5.7 with Delta Lake 3.2.0 for batch and streaming ETL
-- **Transformations**: dbt 1.7+ with comprehensive data quality testing
-- **Streaming**: Apache Kafka 3.5+ with Kafka Connect S3 sink
-- **Data Warehouse**: Snowflake with key-pair authentication
-- **Infrastructure**: Terraform 1.5+ for AWS S3, IAM, and Snowflake provisioning
-
-### Data Quality & Reliability
-- Two-tier deduplication strategy (row_id + business key)
-- UUIDv7-based unique identifiers with millisecond precision
-- Comprehensive dbt tests (uniqueness, not null, referential integrity, business logic)
-- Data quality scoring system for record completeness
-- Master Data Management (MDM) patterns for customer/product golden records
-
-### Security & Compliance
-- Snowflake RSA key-pair authentication (2048-bit encrypted keys)
-- AWS IAM least privilege policies
-- Encryption at rest (S3 SSE, Snowflake automatic) and in transit (TLS 1.2+)
-- Secrets management with .env files (development) and AWS Secrets Manager (production)
-- Container security with non-root users
-
-### Developer Experience
-- Complete Docker Compose environment for local development
-- Comprehensive validation tools (config_validator, setup_doctor)
-- Organized modular requirements files (core, cloud, streaming, spark, dev, test)
-- Professional documentation following Diátaxis framework (Tutorial, How-To, Reference, Explanation)
+**Enterprise Data Quality**
+- Automated deduplication and validation at multiple pipeline stages
+- Comprehensive dbt testing (schema, referential integrity, business rules)
+- Master Data Management patterns for customer and product golden records
+- End-to-end encryption and key-pair authentication
 
 ## Quick Start
 
